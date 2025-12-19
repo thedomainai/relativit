@@ -1,0 +1,48 @@
+{
+  "version": "1.0.0",
+  "description": "UI/UX design references and inspiration sources",
+  "references": [
+    {
+      "id": "UI-REF-001",
+      "name": "Example: Linear App - Issue Tree View",
+      "url": "https://linear.app",
+      "category": "navigation",
+      "reference_points": [
+        "Left sidebar navigation pattern",
+        "Issue hierarchy visualization",
+        "Keyboard shortcuts implementation"
+      ],
+      "screenshots": [],
+      "notes": "Clean, minimal interface with excellent keyboard navigation",
+      "relevant_to": ["navigation", "issue-tracking", "hierarchy"],
+      "tags": ["navigation", "tree-view", "keyboard-shortcuts"],
+      "added_at": "2025-12-17T00:00:00Z"
+    }
+  ],
+  "categories": {
+    "navigation": {
+      "description": "Navigation patterns and menu structures",
+      "references": []
+    },
+    "data-visualization": {
+      "description": "Charts, graphs, and visual data representation",
+      "references": []
+    },
+    "forms": {
+      "description": "Form layouts and input patterns",
+      "references": []
+    },
+    "layouts": {
+      "description": "Page layouts and component arrangements",
+      "references": []
+    },
+    "interactions": {
+      "description": "Micro-interactions, animations, and user feedback",
+      "references": []
+    },
+    "components": {
+      "description": "Reusable UI components",
+      "references": []
+    }
+  }
+}

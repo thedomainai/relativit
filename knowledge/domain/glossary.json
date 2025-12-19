@@ -1,0 +1,43 @@
+{
+  "version": "1.0.0",
+  "glossary": {
+    "requirement": {
+      "definition": "A documented need or expectation for the system",
+      "types": ["functional", "non-functional", "constraint", "assumption"],
+      "related_terms": ["specification", "acceptance_criteria", "user_story"]
+    },
+    "specification": {
+      "definition": "A detailed technical description of how to implement a requirement",
+      "types": ["architecture", "api", "database", "component"],
+      "related_terms": ["requirement", "design", "implementation"]
+    },
+    "component": {
+      "definition": "A modular, reusable part of the system",
+      "properties": ["interface", "implementation", "dependencies"],
+      "related_terms": ["module", "service", "library"]
+    },
+    "validation": {
+      "definition": "Process of checking correctness and quality",
+      "types": ["syntax", "semantic", "business_rule", "security"],
+      "related_terms": ["verification", "testing", "quality_assurance"]
+    },
+    "pipeline": {
+      "definition": "Automated sequence of stages for processing artifacts",
+      "stages": ["parse", "validate", "transform", "generate", "test"],
+      "related_terms": ["workflow", "automation", "ci_cd"]
+    },
+    "agent": {
+      "definition": "Autonomous AI entity capable of decision-making and task execution",
+      "capabilities": ["reasoning", "learning", "execution", "communication"],
+      "related_terms": ["agi", "autonomous_system", "ai_agent"]
+    }
+  },
+  "acronyms": {
+    "AGI": "Artificial General Intelligence",
+    "API": "Application Programming Interface",
+    "CI/CD": "Continuous Integration/Continuous Deployment",
+    "JSON": "JavaScript Object Notation",
+    "YAML": "YAML Ain't Markup Language",
+    "SDK": "Software Development Kit"
+  }
+}

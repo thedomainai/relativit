@@ -1,0 +1,47 @@
+{
+  "version": "1.0.0",
+  "capabilities": {
+    "requirement_generation": {
+      "enabled": true,
+      "confidence_threshold": 0.8,
+      "validation_required": false,
+      "tools": ["nlp", "reasoning", "knowledge_base"]
+    },
+    "specification_design": {
+      "enabled": true,
+      "confidence_threshold": 0.85,
+      "validation_required": false,
+      "tools": ["architecture_analyzer", "api_designer", "database_designer"]
+    },
+    "code_generation": {
+      "enabled": true,
+      "confidence_threshold": 0.9,
+      "validation_required": true,
+      "tools": ["code_generator", "syntax_validator", "linter"],
+      "languages": ["python", "javascript", "typescript", "go", "rust"],
+      "frameworks": ["react", "fastapi", "django", "express"]
+    },
+    "test_generation": {
+      "enabled": true,
+      "confidence_threshold": 0.85,
+      "validation_required": true,
+      "tools": ["test_generator", "coverage_analyzer"],
+      "types": ["unit", "integration", "e2e", "property_based"]
+    },
+    "validation": {
+      "enabled": true,
+      "auto_fix": true,
+      "tools": ["static_analyzer", "type_checker", "security_scanner"]
+    },
+    "documentation": {
+      "enabled": true,
+      "auto_generate": true,
+      "formats": ["markdown", "html", "pdf"]
+    },
+    "deployment": {
+      "enabled": false,
+      "auto_deploy": false,
+      "environments": ["development", "staging"]
+    }
+  }
+}

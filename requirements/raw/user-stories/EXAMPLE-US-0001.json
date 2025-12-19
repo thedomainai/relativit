@@ -1,0 +1,59 @@
+{
+  "id": "US-RELATIVITY-001",
+  "title": "VC Associate's Deep Dive: Structured Research & Gap Analysis with Relativity",
+  "as_a": "VC Associate (Alice)",
+  "i_want": "to conduct complex market and technical due diligence using AI",
+  "so_that": "Relativity automatically structures my scattered LLM conversations into a single, living Issue Tree, ensuring I identify and address all critical investment points before the partner meeting.",
+  "priority": "critical",
+  "status": "ready_for_development",
+  "story_points": 13,
+  "acceptance_criteria": [
+    {
+      "given": "I start a new conversation about an investment decision",
+      "when": "I type a high-level goal ('I want to make an investment decision on this AI SaaS')",
+      "then": "A root node ('◉ Investment Decision') automatically appears in the right pane."
+    },
+    {
+      "given": "I continue the conversation across multiple topics (Market, Tech, Team)",
+      "when": "I interact with the LLM",
+      "then": "Relativity dynamically generates an Issue Tree with branches corresponding to the discussion topics ('Market Opportunity', 'Competitive Landscape', etc.) in real-time."
+    },
+    {
+      "given": "I am discussing a specific sub-topic deep within the tree (e.g., 'Incumbents')",
+      "when": "The conversation is actively ongoing",
+      "then": "A visual indicator ('NOW' badge) should highlight the exact node currently under discussion."
+    },
+    {
+      "given": "I start a new, unrelated chat thread about a detail ('Tell me more about Competitor X')",
+      "when": "Relativity recognizes the topic contextually matches an existing node in the Issue Tree ('Competition > Incumbents')",
+      "then": "It automatically links the new conversation to that existing node."
+    },
+    {
+      "given": "I view the Issue Tree after several hours of research",
+      "when": "There are key, empty sub-nodes that have not been discussed (e.g., '○ Barriers to Entry')",
+      "then": "These empty nodes should be clearly visible, allowing me to immediately identify research gaps."
+    }
+  ],
+  "persona": {
+    "name": "Alice",
+    "role": "VC Associate",
+    "goals": [
+      "Efficiently synthesize large volumes of AI-generated research.",
+      "Ensure comprehensive due diligence without blind spots.",
+      "Present a clear, structured recommendation to partners."
+    ],
+    "pain_points": [
+      "Drowning in fragmented LLM threads ('LLM Sprawl').",
+      "Wasting time re-reading and manually consolidating information.",
+      "The anxiety of potentially missing critical risk factors."
+    ]
+  },
+  "tags": ["core-feature", "ai-structuring", "knowledge-management", "due-diligence"],
+  "notes": "The primary value is the shift from linear chat threads to a non-linear, organized thought structure. Focus on instantaneous, automatic linking and gap detection. Must handle conversations starting in different threads but linking to the same core project.",
+  "metadata": {
+    "created_at": "2025-12-17T10:48:54Z",
+    "created_by": "gemini_ai",
+    "sprint": "Sprint 3: Core Structuring",
+    "team": "Relativity Core AI"
+  }
+}

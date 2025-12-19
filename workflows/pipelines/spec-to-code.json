@@ -1,0 +1,119 @@
+{
+  "name": "spec-to-code",
+  "version": "1.0.0",
+  "description": "Automated pipeline to generate code from specifications",
+  "trigger": {
+    "type": "event",
+    "events": ["spec.approved"],
+    "conditions": {
+      "spec.status": "approved"
+    }
+  },
+  "stages": [
+    {
+      "id": "parse",
+      "name": "Parse Specification",
+      "type": "parsing",
+      "parser": "spec_parser",
+      "inputs": ["specification"],
+      "outputs": ["parsed_spec"]
+    },
+    {
+      "id": "plan",
+      "name": "Plan Implementation",
+      "type": "ai_task",
+      "agent": "implementation_planner",
+      "inputs": ["parsed_spec", "codebase_context"],
+      "outputs": ["implementation_plan"],
+      "config": {
+        "include_file_structure": true,
+        "include_dependencies": true
+      }
+    },
+    {
+      "id": "generate_code",
+      "name": "Generate Code",
+      "type": "ai_task",
+      "agent": "code_generator",
+      "inputs": ["implementation_plan"],
+      "outputs": ["generated_code"],
+      "config": {
+        "prompt_template": ".agent/prompts/task/generate_code.md",
+        "use_templates": true,
+        "template_path": "src/.codegen/templates/"
+      }
+    },
+    {
+      "id": "generate_tests",
+      "name": "Generate Tests",
+      "type": "ai_task",
+      "agent": "test_generator",
+      "inputs": ["generated_code", "specification"],
+      "outputs": ["test_code"],
+      "config": {
+        "test_types": ["unit", "integration"],
+        "coverage_target": 0.8
+      }
+    },
+    {
+      "id": "validate_code",
+      "name": "Validate Code",
+      "type": "validation",
+      "validator": "code_validator",
+      "inputs": ["generated_code", "test_code"],
+      "checks": [
+        "syntax",
+        "type_safety",
+        "security",
+        "style"
+      ]
+    },
+    {
+      "id": "run_tests",
+      "name": "Run Tests",
+      "type": "execution",
+      "executor": "test_runner",
+      "inputs": ["test_code"],
+      "outputs": ["test_results"]
+    },
+    {
+      "id": "quality_gate",
+      "name": "Quality Gate",
+      "type": "decision",
+      "condition": "test_results.passed == true && validation.score > 0.9",
+      "on_success": "commit",
+      "on_failure": "fix"
+    },
+    {
+      "id": "fix",
+      "name": "Auto-fix Issues",
+      "type": "ai_task",
+      "agent": "code_fixer",
+      "inputs": ["generated_code", "test_results", "validation"],
+      "outputs": ["fixed_code"],
+      "max_attempts": 3,
+      "next": "validate_code"
+    },
+    {
+      "id": "commit",
+      "name": "Commit Code",
+      "type": "storage",
+      "action": "save",
+      "destination": "src/",
+      "inputs": ["generated_code", "test_code"],
+      "post_actions": [
+        "update_dependencies",
+        "update_documentation"
+      ]
+    }
+  ],
+  "error_handling": {
+    "retry_attempts": 3,
+    "fallback": "human_review",
+    "rollback_on_failure": true
+  },
+  "monitoring": {
+    "metrics": ["generation_time", "test_coverage", "code_quality_score"],
+    "alerts": ["test_failure", "security_issue"]
+  }
+}

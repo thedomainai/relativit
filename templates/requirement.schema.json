@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Requirement",
+  "type": "object",
+  "required": ["id", "type", "title", "description", "priority"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^REQ-[0-9]{4}$",
+      "description": "Unique requirement identifier (e.g., REQ-0001)"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["functional", "non-functional", "constraint", "assumption"],
+      "description": "Type of requirement"
+    },
+    "category": {
+      "type": "string",
+      "description": "Category or domain of the requirement"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 100,
+      "description": "Brief title of the requirement"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Detailed description of the requirement"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"],
+      "description": "Priority level"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "proposed", "validated", "approved", "implemented", "rejected"],
+      "default": "draft",
+      "description": "Current status of the requirement"
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of acceptance criteria"
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^REQ-[0-9]{4}$"
+      },
+      "description": "IDs of dependent requirements"
+    },
+    "rationale": {
+      "type": "string",
+      "description": "Reasoning behind this requirement"
+    },
+    "source": {
+      "type": "string",
+      "enum": ["user_input", "ai_generated", "stakeholder", "technical", "regulatory"],
+      "description": "Origin of the requirement"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "created_by": {
+          "type": "string"
+        },
+        "confidence_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}

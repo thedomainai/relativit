@@ -1,0 +1,149 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UIReference",
+  "description": "Schema for UI design reference information",
+  "type": "object",
+  "required": ["id", "name", "url", "reference_points"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^UI-REF-[0-9]{3}$",
+      "description": "Unique reference identifier (e.g., UI-REF-001)"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 3,
+      "description": "Name of the reference source"
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL of the reference website or resource"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "navigation",
+        "data-visualization",
+        "forms",
+        "layouts",
+        "interactions",
+        "components",
+        "animations",
+        "typography",
+        "color-scheme",
+        "other"
+      ],
+      "description": "Primary category of the UI reference"
+    },
+    "reference_points": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "description": "Specific aspects to reference (what to learn/copy from this example)"
+    },
+    "screenshots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL or path to screenshot"
+          },
+          "description": {
+            "type": "string",
+            "description": "What this screenshot shows"
+          },
+          "highlights": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Key elements highlighted in this screenshot"
+          }
+        }
+      },
+      "description": "Screenshots of the reference UI"
+    },
+    "figma_link": {
+      "type": "string",
+      "format": "uri",
+      "description": "Link to Figma file or design if available"
+    },
+    "interactive_demo": {
+      "type": "string",
+      "format": "uri",
+      "description": "Link to interactive demo or CodePen"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes about this reference"
+    },
+    "pros": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Positive aspects to adopt"
+    },
+    "cons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Aspects to avoid or improve upon"
+    },
+    "relevant_to": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Features or components this reference is relevant to"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Tags for categorization"
+    },
+    "related_user_stories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^US-[A-Z0-9-]+$"
+      },
+      "description": "Related user story IDs"
+    },
+    "implementation_complexity": {
+      "type": "string",
+      "enum": ["simple", "moderate", "complex", "very-complex"],
+      "description": "Estimated complexity to implement"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["must-have", "should-have", "nice-to-have"],
+      "default": "should-have"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "added_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "added_by": {
+          "type": "string"
+        },
+        "last_updated": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

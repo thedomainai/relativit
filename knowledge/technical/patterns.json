@@ -1,0 +1,106 @@
+{
+  "version": "1.0.0",
+  "design_patterns": {
+    "architectural": {
+      "event_driven": {
+        "description": "System components communicate via events",
+        "use_cases": ["workflow_orchestration", "agent_communication", "state_changes"],
+        "benefits": ["loose_coupling", "scalability", "flexibility"],
+        "considerations": ["eventual_consistency", "debugging_complexity"]
+      },
+      "pipeline": {
+        "description": "Sequential stages processing data with validation between stages",
+        "use_cases": ["requirement_to_spec", "spec_to_code", "data_transformation"],
+        "benefits": ["modularity", "testability", "clear_flow"],
+        "considerations": ["stage_failures", "backpressure"]
+      },
+      "repository": {
+        "description": "Centralized data access abstraction",
+        "use_cases": ["state_management", "knowledge_base", "artifact_storage"],
+        "benefits": ["data_encapsulation", "testability", "flexibility"],
+        "considerations": ["performance", "caching"]
+      }
+    },
+    "behavioral": {
+      "chain_of_responsibility": {
+        "description": "Pass request through chain of handlers",
+        "use_cases": ["validation_pipeline", "decision_making", "error_handling"],
+        "benefits": ["flexibility", "single_responsibility"],
+        "considerations": ["performance", "chain_length"]
+      },
+      "strategy": {
+        "description": "Encapsulate algorithms and make them interchangeable",
+        "use_cases": ["code_generation", "validation_strategies", "learning_algorithms"],
+        "benefits": ["flexibility", "testability"],
+        "considerations": ["strategy_selection", "complexity"]
+      },
+      "observer": {
+        "description": "Notify dependents of state changes",
+        "use_cases": ["event_bus", "state_monitoring", "workflow_triggers"],
+        "benefits": ["loose_coupling", "dynamic_subscription"],
+        "considerations": ["memory_leaks", "notification_order"]
+      }
+    },
+    "structural": {
+      "adapter": {
+        "description": "Convert interface to another interface",
+        "use_cases": ["external_api_integration", "legacy_system_interface"],
+        "benefits": ["compatibility", "reusability"],
+        "considerations": ["performance_overhead", "complexity"]
+      },
+      "facade": {
+        "description": "Simplified interface to complex subsystem",
+        "use_cases": ["agent_api", "workflow_orchestration", "knowledge_base_access"],
+        "benefits": ["simplicity", "loose_coupling"],
+        "considerations": ["over_simplification"]
+      }
+    }
+  },
+  "best_practices": {
+    "code_generation": {
+      "use_templates": true,
+      "validate_before_save": true,
+      "generate_tests_together": true,
+      "include_documentation": true,
+      "follow_project_conventions": true
+    },
+    "validation": {
+      "validate_early": true,
+      "use_schema_validation": true,
+      "implement_multiple_levels": ["syntax", "semantic", "business"],
+      "provide_clear_errors": true,
+      "auto_fix_when_possible": true
+    },
+    "state_management": {
+      "atomic_updates": true,
+      "versioning": true,
+      "checkpoints": true,
+      "audit_trail": true,
+      "eventual_consistency_acceptable": true
+    },
+    "learning": {
+      "record_outcomes": true,
+      "extract_patterns": true,
+      "continuous_feedback_loop": true,
+      "version_models": true,
+      "validate_improvements": true
+    }
+  },
+  "anti_patterns": {
+    "god_object": {
+      "description": "Object that knows/does too much",
+      "avoid_by": "single_responsibility_principle",
+      "refactor_to": ["multiple_specialized_objects"]
+    },
+    "spaghetti_code": {
+      "description": "Tangled control flow",
+      "avoid_by": "clear_abstractions",
+      "refactor_to": ["structured_pipelines", "clear_interfaces"]
+    },
+    "premature_optimization": {
+      "description": "Optimizing before measuring",
+      "avoid_by": "profile_first",
+      "refactor_to": ["measure_then_optimize"]
+    }
+  }
+}

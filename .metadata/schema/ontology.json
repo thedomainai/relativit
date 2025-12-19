@@ -1,0 +1,50 @@
+{
+  "version": "1.0.0",
+  "ontology": {
+    "concepts": {
+      "Requirement": {
+        "description": "A need or expectation for the system",
+        "properties": ["id", "type", "priority", "status"],
+        "relationships": ["implements", "depends_on", "conflicts_with"]
+      },
+      "Specification": {
+        "description": "Technical specification for implementation",
+        "properties": ["id", "type", "technical_details"],
+        "relationships": ["satisfies", "depends_on", "composed_of"]
+      },
+      "Component": {
+        "description": "A modular part of the system",
+        "properties": ["name", "type", "interfaces"],
+        "relationships": ["uses", "provides", "depends_on"]
+      },
+      "Test": {
+        "description": "Validation test case",
+        "properties": ["id", "type", "status"],
+        "relationships": ["validates", "covers"]
+      }
+    },
+    "relationships": {
+      "implements": {
+        "source": "Specification",
+        "target": "Requirement",
+        "cardinality": "many-to-many"
+      },
+      "depends_on": {
+        "source": "*",
+        "target": "*",
+        "cardinality": "many-to-many",
+        "description": "Dependency relationship"
+      },
+      "satisfies": {
+        "source": "Specification",
+        "target": "Requirement",
+        "cardinality": "many-to-many"
+      },
+      "validates": {
+        "source": "Test",
+        "target": "Specification",
+        "cardinality": "many-to-many"
+      }
+    }
+  }
+}

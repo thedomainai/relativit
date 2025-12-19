@@ -1,0 +1,40 @@
+{
+  "version": "1.0.0",
+  "timestamp": "2025-12-17T00:00:00Z",
+  "project": {
+    "name": "Relativity",
+    "status": "initialized",
+    "phase": "setup",
+    "progress": 0
+  },
+  "components": {
+    "requirements": {
+      "status": "empty",
+      "count": 0,
+      "last_updated": null
+    },
+    "specifications": {
+      "status": "empty",
+      "count": 0,
+      "last_updated": null
+    },
+    "code": {
+      "status": "empty",
+      "files_count": 0,
+      "lines_of_code": 0,
+      "last_updated": null
+    },
+    "tests": {
+      "status": "empty",
+      "count": 0,
+      "coverage": 0,
+      "last_run": null
+    }
+  },
+  "agent": {
+    "status": "ready",
+    "current_task": null,
+    "tasks_completed": 0,
+    "tasks_failed": 0
+  }
+}

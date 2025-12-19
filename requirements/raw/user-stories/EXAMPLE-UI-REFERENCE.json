@@ -1,0 +1,76 @@
+{
+  "id": "US-EXAMPLE-002",
+  "title": "Example: User Story with UI References",
+  "as_a": "product designer",
+  "i_want": "to see how to add UI references to user stories",
+  "so_that": "I can guide the development team with specific design examples",
+  "priority": "medium",
+  "status": "draft",
+
+  "ui_references": [
+    {
+      "name": "Notion - Collapsible Sidebar",
+      "url": "https://notion.so",
+      "reference_points": [
+        "Smooth expand/collapse animation on tree nodes",
+        "Visual depth indication with indentation",
+        "Hover state showing mini-menu options",
+        "Drag-and-drop to reorganize items"
+      ],
+      "screenshots": [
+        {
+          "url": "https://example.com/notion-sidebar.png",
+          "description": "Notion's left sidebar showing hierarchical page structure"
+        }
+      ],
+      "what_to_adopt": "The smooth animation and intuitive drag-drop interaction. Also note the subtle hover states that don't feel overwhelming.",
+      "notes": "Focus on the interaction model rather than exact visual styling. Their tree view is one of the best in class."
+    },
+    {
+      "name": "Linear - Keyboard Shortcuts",
+      "url": "https://linear.app",
+      "reference_points": [
+        "Command palette (Cmd+K)",
+        "Quick navigation shortcuts",
+        "Shortcut hints on hover",
+        "Visual feedback for keyboard actions"
+      ],
+      "what_to_adopt": "The command palette pattern and how they show keyboard hints inline",
+      "notes": "Best-in-class keyboard navigation. Must implement similar shortcuts for power users."
+    },
+    {
+      "name": "Obsidian - Graph View Interactions",
+      "url": "https://obsidian.md",
+      "reference_points": [
+        "Zoom and pan with smooth physics",
+        "Node clustering and filtering",
+        "Link visualization between nodes",
+        "Interactive node selection"
+      ],
+      "what_to_adopt": "The physics-based graph layout and smooth interaction model"
+    }
+  ],
+
+  "acceptance_criteria": [
+    {
+      "given": "I am viewing the sidebar",
+      "when": "I hover over a collapsible item",
+      "then": "I should see a smooth expand/collapse animation similar to Notion"
+    }
+  ],
+
+  "persona": {
+    "name": "Designer Dan",
+    "role": "Product Designer",
+    "goals": ["Create intuitive interfaces", "Reference best practices"],
+    "pain_points": ["Unclear design direction", "Inconsistent UI patterns"]
+  },
+
+  "tags": ["example", "ui-reference", "documentation"],
+  "notes": "This is an example showing how to add UI references to user stories.",
+
+  "metadata": {
+    "created_at": "2025-12-17T11:00:00Z",
+    "created_by": "documentation_team"
+  }
+}

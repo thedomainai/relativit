@@ -1,0 +1,109 @@
+{
+  "version": "1.0.0",
+  "validation_rules": {
+    "structure": {
+      "required_fields": [
+        "id",
+        "type",
+        "title",
+        "description",
+        "priority",
+        "status"
+      ],
+      "id_pattern": "^REQ-[0-9]{4}$",
+      "title_length": {
+        "min": 5,
+        "max": 100
+      },
+      "description_length": {
+        "min": 10
+      }
+    },
+    "content": {
+      "title_quality": {
+        "must_be_descriptive": true,
+        "no_vague_terms": ["something", "stuff", "thing"],
+        "prefer_action_verbs": true
+      },
+      "description_quality": {
+        "must_include_context": true,
+        "must_include_rationale": true,
+        "must_be_testable": true
+      },
+      "acceptance_criteria": {
+        "required": true,
+        "minimum_count": 1,
+        "must_be_specific": true,
+        "must_be_measurable": true
+      }
+    },
+    "relationships": {
+      "dependencies": {
+        "must_exist": true,
+        "no_circular_dependencies": true,
+        "max_depth": 5
+      },
+      "conflicts": {
+        "check_for_contradictions": true,
+        "check_for_duplicates": true
+      }
+    },
+    "metadata": {
+      "confidence_score": {
+        "required": true,
+        "minimum": 0.7
+      },
+      "source": {
+        "required": true,
+        "valid_values": [
+          "user_input",
+          "ai_generated",
+          "stakeholder",
+          "technical",
+          "regulatory"
+        ]
+      },
+      "timestamps": {
+        "created_at_required": true,
+        "updated_at_required": true
+      }
+    },
+    "priority_rules": {
+      "critical": {
+        "requires_immediate_attention": true,
+        "requires_rationale": true
+      },
+      "high": {
+        "requires_timeline": true
+      }
+    },
+    "type_specific": {
+      "functional": {
+        "must_describe_behavior": true,
+        "must_specify_actors": true,
+        "must_include_outcomes": true
+      },
+      "non_functional": {
+        "must_be_quantifiable": true,
+        "must_include_metrics": true,
+        "categories": [
+          "performance",
+          "security",
+          "scalability",
+          "reliability",
+          "usability",
+          "maintainability"
+        ]
+      },
+      "constraint": {
+        "must_specify_limitation": true,
+        "must_include_reason": true
+      }
+    }
+  },
+  "severity_levels": {
+    "error": "Blocks approval - must be fixed",
+    "warning": "Should be addressed but not blocking",
+    "info": "Suggestion for improvement"
+  }
+}

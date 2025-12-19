@@ -1,0 +1,15 @@
+{
+  "name": "relativity",
+  "version": "1.0.0",
+  "description": "Relativity - Structured thinking with AI",
+  "scripts": {
+    "install:all": "npm --prefix src/features/app/server install && npm --prefix src/features/app/client install",
+    "dev:server": "npm --prefix src/features/app/server run dev",
+    "dev:client": "npm --prefix src/features/app/client run start",
+    "start:server": "npm --prefix src/features/app/server run start",
+    "build:client": "npm --prefix src/features/app/client run build"
+  },
+  "keywords": ["ai", "research", "llm", "structured-thinking"],
+  "author": "",
+  "license": "MIT"
+}

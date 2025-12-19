@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "timestamp": "2025-12-17T00:00:00Z",
+  "queue": [],
+  "in_progress": [],
+  "completed": [],
+  "failed": [],
+  "metadata": {
+    "total_tasks": 0,
+    "pending_count": 0,
+    "in_progress_count": 0,
+    "completed_count": 0,
+    "failed_count": 0
+  }
+}

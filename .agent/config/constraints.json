@@ -1,0 +1,45 @@
+{
+  "version": "1.0.0",
+  "constraints": {
+    "safety": {
+      "enabled": true,
+      "rules": [
+        "no_destructive_operations_without_backup",
+        "no_external_api_calls_without_approval",
+        "no_sensitive_data_in_logs",
+        "no_production_deployment_without_review"
+      ]
+    },
+    "quality": {
+      "code_coverage_minimum": 80,
+      "type_safety_required": true,
+      "documentation_required": true,
+      "security_scan_required": true
+    },
+    "performance": {
+      "max_processing_time_seconds": 300,
+      "max_memory_usage_mb": 2048,
+      "max_api_calls_per_task": 100
+    },
+    "governance": {
+      "audit_trail_required": true,
+      "decision_explanation_required": true,
+      "rollback_capability_required": true
+    },
+    "scope": {
+      "allowed_operations": [
+        "read",
+        "write",
+        "create",
+        "update",
+        "analyze",
+        "validate"
+      ],
+      "forbidden_operations": [
+        "delete_without_backup",
+        "modify_production",
+        "access_external_services"
+      ]
+    }
+  }
+}

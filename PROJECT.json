@@ -1,0 +1,67 @@
+{
+  "name": "Relativity",
+  "version": "0.1.0",
+  "description": "AGI-powered autonomous software development system",
+  "type": "agi_project",
+  "created": "2025-12-17",
+  "architecture": {
+    "paradigm": "agi_autonomous",
+    "automation_level": "full",
+    "human_involvement": "optional"
+  },
+  "capabilities": {
+    "requirement_generation": true,
+    "specification_design": true,
+    "code_generation": true,
+    "test_generation": true,
+    "validation": true,
+    "deployment": false,
+    "self_improvement": true
+  },
+  "structure": {
+    "agent_system": ".agent/",
+    "state_management": ".state/",
+    "metadata": ".metadata/",
+    "learning": ".learning/",
+    "requirements": "requirements/",
+    "specifications": "specs/",
+    "source_code": "src/",
+    "tests": "tests/",
+    "validation": "validation/",
+    "workflows": "workflows/",
+    "knowledge_base": "knowledge/",
+    "communication": "communication/",
+    "documentation": "docs/",
+    "monitoring": "monitoring/",
+    "templates": "templates/"
+  },
+  "workflows": {
+    "requirement_to_spec": {
+      "enabled": true,
+      "automated": true
+    },
+    "spec_to_code": {
+      "enabled": true,
+      "automated": true
+    },
+    "code_to_test": {
+      "enabled": true,
+      "automated": true
+    },
+    "continuous_validation": {
+      "enabled": true,
+      "automated": true
+    }
+  },
+  "quality_standards": {
+    "code_coverage_minimum": 80,
+    "type_safety_required": true,
+    "security_scan_required": true,
+    "documentation_required": true
+  },
+  "metadata": {
+    "format_version": "1.0.0",
+    "last_updated": "2025-12-17",
+    "status": "initialized"
+  }
+}

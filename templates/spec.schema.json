@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Specification",
+  "type": "object",
+  "required": ["id", "type", "title", "description", "requirements"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^SPEC-[0-9]{4}$",
+      "description": "Unique specification identifier (e.g., SPEC-0001)"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["architecture", "api", "database", "ui", "component", "system"],
+      "description": "Type of specification"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 100,
+      "description": "Brief title of the specification"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Detailed description"
+    },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^REQ-[0-9]{4}$"
+      },
+      "description": "Related requirement IDs"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "review", "approved", "implemented", "deprecated"],
+      "default": "draft"
+    },
+    "technical_details": {
+      "type": "object",
+      "description": "Technical implementation details"
+    },
+    "interfaces": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "type": {"type": "string"},
+          "description": {"type": "string"},
+          "contract": {"type": "object"}
+        }
+      },
+      "description": "Interface definitions"
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Dependencies on other specs or components"
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Technical constraints"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "created_at": {"type": "string", "format": "date-time"},
+        "updated_at": {"type": "string", "format": "date-time"},
+        "version": {"type": "string"},
+        "author": {"type": "string"}
+      }
+    }
+  }
+}
