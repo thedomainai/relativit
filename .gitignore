@@ -91,6 +91,11 @@ bin/
 .env.*.local
 *.local
 
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
 # Secrets
 secrets/
 *.key

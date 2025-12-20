@@ -1,0 +1,186 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  avatar    String?
+  
+  // Email verification
+  emailVerified   Boolean  @default(false)
+  emailVerifiedAt DateTime?
+  
+  // API Key (encrypted)
+  apiProvider     String?  // 'anthropic' | 'openai' | 'gemini'
+  apiKeyEncrypted String?  @db.Text
+  apiKeyIv        String?  // Initialization vector for AES
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastLoginAt DateTime?
+  
+  // Relations
+  workspaces       Workspace[]
+  refreshTokens    RefreshToken[]
+  verificationCodes VerificationCode[]
+  
+  @@index([email])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+  
+  // Device info for security
+  userAgent String?
+  ipAddress String?
+  
+  @@index([userId])
+  @@index([token])
+}
+
+model VerificationCode {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email     String
+  code      String
+  type      String   // 'email_verification' | 'password_reset' | 'login'
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  
+  @@index([email, code])
+  @@index([userId])
+}
+
+// ============================================
+// WORKSPACES & RESEARCH
+// ============================================
+
+model Workspace {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  color       String?  @default("#6366f1")
+  icon        String?  @default("folder")
+  
+  // Issue tree stored as JSON
+  issueTree   Json     @default("{}")
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  archivedAt  DateTime?
+  
+  // Relations
+  threads     Thread[]
+  
+  @@index([userId])
+  @@index([userId, createdAt])
+}
+
+model Thread {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  title       String
+  summary     String?   @db.Text
+  
+  // Status
+  status      String    @default("active") // 'active' | 'archived' | 'pinned'
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  messages    Message[]
+  
+  @@index([workspaceId])
+  @@index([workspaceId, updatedAt])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  threadId  String
+  thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  
+  role      String   // 'user' | 'assistant' | 'system'
+  content   String   @db.Text
+  
+  // Metadata
+  model     String?  // AI model used (e.g., 'claude-sonnet-4-20250514')
+  tokens    Int?     // Token count
+  
+  // Error tracking
+  isError   Boolean  @default(false)
+  errorCode String?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  @@index([threadId])
+  @@index([threadId, createdAt])
+}
+
+// ============================================
+// AUDIT & ANALYTICS
+// ============================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String   // 'login' | 'logout' | 'api_call' | 'workspace_create' | etc.
+  resource  String?  // Resource type affected
+  resourceId String? // ID of affected resource
+  metadata  Json?    // Additional context
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model ApiUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  provider  String   // 'anthropic' | 'openai' | 'gemini'
+  model     String
+  endpoint  String   // 'chat' | 'extract_issues'
+  tokens    Int
+  cost      Float?   // Estimated cost in USD
+  duration  Int?     // Request duration in ms
+  success   Boolean
+  error     String?
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@index([provider])
+}

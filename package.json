@@ -1,15 +1,27 @@
 {
   "name": "relativity",
   "version": "1.0.0",
-  "description": "Relativity - Structured thinking with AI",
+  "description": "Relativity - AGI-powered autonomous software development system with production-ready web application",
+  "private": true,
   "scripts": {
     "install:all": "npm --prefix src/features/app/server install && npm --prefix src/features/app/client install",
     "dev:server": "npm --prefix src/features/app/server run dev",
     "dev:client": "npm --prefix src/features/app/client run start",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "start:server": "npm --prefix src/features/app/server run start",
-    "build:client": "npm --prefix src/features/app/client run build"
+    "build:client": "npm --prefix src/features/app/client run build",
+    "db:generate": "npm --prefix src/features/app/server run db:generate",
+    "db:push": "npm --prefix src/features/app/server run db:push",
+    "db:migrate": "npm --prefix src/features/app/server run db:migrate",
+    "db:studio": "npm --prefix src/features/app/server run db:studio"
   },
-  "keywords": ["ai", "research", "llm", "structured-thinking"],
+  "keywords": ["ai", "research", "llm", "structured-thinking", "agi", "autonomous-development"],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }

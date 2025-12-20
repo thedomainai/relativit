@@ -5,7 +5,7 @@ AGI-powered autonomous software development system designed for complete automat
 This repository contains two tightly connected parts:
 
 - **AGI-oriented project structure** (requirements, specs, workflows, knowledge, etc.)
-- **Relativity web application** (React frontend + Express/SQLite backend) under `src/features/app/`
+- **Relativity web application** (React frontend + Express/PostgreSQL backend) under `src/features/app/`
 
 The goal is to let both humans and AGI agents collaborate around a structured SDLC while still being able to run a concrete application locally with minimal setup.
 
@@ -207,6 +207,7 @@ Trigger Specification Pipeline
 
 - Node.js 18+ (LTS recommended)
 - npm (or another Node.js package manager)
+- PostgreSQL 14+ (or Docker for easy setup)
 
 #### Installation
 
@@ -222,6 +223,28 @@ This will:
 - Install server dependencies in `src/features/app/server/`
 - Install client dependencies in `src/features/app/client/`
 
+#### Database Setup
+
+**Option A: Using Supabase (Recommended - Already configured)**
+
+If you have a Supabase project, use the connection string provided by Supabase.
+
+**Option B: Using Docker (For local development)**
+
+```bash
+docker run -d \
+  --name relativity-db \
+  -e POSTGRES_USER=relativity \
+  -e POSTGRES_PASSWORD=relativity_secret \
+  -e POSTGRES_DB=relativity \
+  -p 5432:5432 \
+  postgres:16-alpine
+```
+
+**Option C: Using existing PostgreSQL**
+
+Create a database named `relativity` in your PostgreSQL instance.
+
 #### Environment configuration
 
 Backend environment file (not committed to Git):
@@ -232,14 +255,61 @@ Backend environment file (not committed to Git):
 cp src/features/app/server/.env.example src/features/app/server/.env
 ```
 
-2. Edit `src/features/app/server/.env` and set at least:
+2. Edit `src/features/app/server/.env` and set:
+
+**For Supabase:**
 
 ```env
+# Database (Supabase connection string)
+# Get your connection string from Supabase Dashboard > Settings > Database
+# Note: If password contains @, URL-encode it as %40
+DATABASE_URL="postgresql://postgres:[YOUR-PASSWORD]@db.bfmeghkoxpengilcklny.supabase.co:5432/postgres?schema=public"
+
+# Server
 PORT=3001
-JWT_SECRET=change-me-to-a-long-random-secret
+
+# Security (generate secure values!)
+# Generate with: openssl rand -base64 64
+JWT_SECRET=change-me-to-a-long-random-secret-minimum-64-characters
+# Generate with: openssl rand -base64 32
+ENCRYPTION_KEY=change-me-to-a-32-byte-encryption-key
+
+# Demo mode (for local testing - uses fixed verification code 677485)
+DEMO_MODE=true
 ```
 
-For production, replace `JWT_SECRET` with a long, random secret string.
+**For local Docker/PostgreSQL:**
+
+```env
+# Database (local PostgreSQL)
+DATABASE_URL="postgresql://relativity:relativity_secret@localhost:5432/relativity?schema=public"
+
+# Server
+PORT=3001
+
+# Security (generate secure values!)
+# Generate with: openssl rand -base64 64
+JWT_SECRET=change-me-to-a-long-random-secret-minimum-64-characters
+# Generate with: openssl rand -base64 32
+ENCRYPTION_KEY=change-me-to-a-32-byte-encryption-key
+
+# Demo mode (for local testing - uses fixed verification code 677485)
+DEMO_MODE=true
+```
+
+**Important:** 
+- For Supabase: The password `trj_rwv0nxe6HUF@tvb` contains `@`, so it must be URL-encoded as `%40` in the connection string.
+- For production, replace `JWT_SECRET` and `ENCRYPTION_KEY` with secure random values.
+
+3. Initialize the database:
+
+```bash
+# Generate Prisma client
+npm run db:generate
+
+# Create database tables
+npm run db:push
+```
 
 Frontend environment file (optional):
 
@@ -265,7 +335,7 @@ Start the backend API:
 npm run dev:server
 ```
 
-This runs the Express server from `src/features/app/server/index.js` (default port `3001`).
+This runs the Express server from `src/features/app/server/src/index.js` (default port `3001`).
 
 Start the frontend client in another terminal:
 
