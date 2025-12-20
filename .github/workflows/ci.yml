@@ -57,11 +57,13 @@ jobs:
         run: |
           cd src/features/app/server
           # Check if test files exist
-          if find . -name "*.test.js" -o -name "*.spec.js" | grep -q .; then
+          TEST_FILES=$(find . -name "*.test.js" -o -name "*.spec.js" 2>/dev/null | head -1)
+          if [ -n "$TEST_FILES" ]; then
             echo "Running tests..."
             npm test
           else
             echo "⚠️  No test files found. Skipping test step."
+            echo "To add tests, create files matching pattern: **/*.test.js or **/*.spec.js"
           fi
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
@@ -92,9 +94,18 @@ jobs:
         run: |
           cd src/features/app/server
           # Check if ESLint config exists
-          if [ -f .eslintrc.js ] || [ -f .eslintrc.json ] || [ -f .eslintrc ]; then
+          if [ -f .eslintrc.js ] || [ -f .eslintrc.json ] || [ -f .eslintrc ] || [ -f .eslintrc.yml ] || [ -f .eslintrc.yaml ]; then
             echo "Running linter..."
-            npm run lint || echo "⚠️  Linter found issues (non-blocking)"
+            npm run lint 2>&1 || {
+              EXIT_CODE=$?
+              if [ $EXIT_CODE -eq 1 ]; then
+                echo "⚠️  Linter found issues (non-blocking)"
+                exit 0
+              else
+                echo "⚠️  Linter error (non-blocking)"
+                exit 0
+              fi
+            }
           else
             echo "⚠️  No ESLint config found. Skipping lint step."
           fi
