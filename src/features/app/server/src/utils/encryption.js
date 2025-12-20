@@ -77,14 +77,8 @@ function generateSecureToken(length = 32) {
 
 /**
  * Generate a 6-digit verification code
- * Demo mode: always use fixed code for easier testing.
- * NOTE: For real production use, replace this with a random generator.
  */
 function generateVerificationCode() {
-  // Demo mode: fixed code
-  if (process.env.DEMO_MODE === 'true' || process.env.NODE_ENV === 'development') {
-    return '677485';
-  }
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 

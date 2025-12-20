@@ -1,7 +1,7 @@
 {
-  "name": "relativity-server",
+  "name": "relativit-server",
   "version": "1.0.0",
-  "description": "Relativity API Server - Production Ready",
+  "description": "Relativit API Server - Production Ready",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

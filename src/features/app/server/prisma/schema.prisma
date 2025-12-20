@@ -30,6 +30,11 @@ model User {
   apiKeyEncrypted String?  @db.Text
   apiKeyIv        String?  // Initialization vector for AES
   
+  // Trial mode (uses Relativit's API key)
+  useTrialMode    Boolean  @default(false)
+  trialCredits    Float    @default(0) // Credits in USD (0.5 = $0.50)
+  trialStartedAt  DateTime?
+  
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

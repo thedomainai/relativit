@@ -32,14 +32,14 @@ const colors = {
 // API CLIENT
 // ============================================
 const api = {
-  token: localStorage.getItem('relativity_token'),
+  token: localStorage.getItem('relativit_token'),
   
   setToken(token) {
     this.token = token;
     if (token) {
-      localStorage.setItem('relativity_token', token);
+      localStorage.setItem('relativit_token', token);
     } else {
-      localStorage.removeItem('relativity_token');
+      localStorage.removeItem('relativit_token');
     }
   },
 
@@ -74,6 +74,7 @@ const api = {
   // Settings
   saveApiKey: (provider, apiKey) => api.request('/settings/api-key', { method: 'POST', body: { provider, apiKey } }),
   getApiKeyStatus: () => api.request('/settings/api-key'),
+  enableTrialMode: () => api.request('/settings/trial-mode/enable', { method: 'POST' }),
 
   // AI
   chat: (messages) => api.request('/ai/chat', { method: 'POST', body: { messages } }),
@@ -104,6 +105,8 @@ const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [useTrialMode, setUseTrialMode] = useState(false);
+  const [trialCredits, setTrialCredits] = useState(0);
 
   useEffect(() => {
     const init = async () => {
@@ -125,21 +128,43 @@ const AuthProvider = ({ children }) => {
     api.setToken(token);
     setUser(userData);
     const status = await api.getApiKeyStatus();
-    setHasApiKey(status.hasApiKey);
+    setHasApiKey(status.hasApiKey || status.useTrialMode);
+    setUseTrialMode(status.useTrialMode || false);
+    setTrialCredits(status.trialCredits || 0);
   };
 
   const logout = () => {
     api.setToken(null);
     setUser(null);
     setHasApiKey(false);
+    setUseTrialMode(false);
+    setTrialCredits(0);
   };
 
   const updateApiKeyStatus = (status) => {
     setHasApiKey(status);
   };
 
+  const updateTrialMode = (enabled, credits) => {
+    setUseTrialMode(enabled);
+    setTrialCredits(credits || 0);
+    if (enabled) {
+      setHasApiKey(true);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, hasApiKey, login, logout, updateApiKeyStatus }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      hasApiKey, 
+      useTrialMode,
+      trialCredits,
+      login, 
+      logout, 
+      updateApiKeyStatus,
+      updateTrialMode
+    }}>
       {children}
     </AuthContext.Provider>
   );
@@ -195,8 +220,8 @@ const EmailStep = ({ onNext }) => {
     setError('');
     
     try {
-      const result = await api.requestCode(email);
-      onNext(email, result.demo_code); // demo_code only for testing
+      await api.requestCode(email);
+      onNext(email);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -207,7 +232,7 @@ const EmailStep = ({ onNext }) => {
   return (
     <form onSubmit={handleSubmit}>
       <h2 style={{ fontSize: '24px', fontWeight: '600', color: colors.neutral[50], marginBottom: '8px', textAlign: 'center' }}>
-        Welcome to Relativity
+        Welcome to Relativit
       </h2>
       <p style={{ fontSize: '14px', color: colors.neutral[500], marginBottom: '32px', textAlign: 'center' }}>
         Enter your email to get started
@@ -257,7 +282,7 @@ const EmailStep = ({ onNext }) => {
 };
 
 // Step 2: Verification Code
-const VerifyCodeStep = ({ email, demoCode, onVerified, onBack }) => {
+const VerifyCodeStep = ({ email, onVerified, onBack }) => {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -277,8 +302,13 @@ const VerifyCodeStep = ({ email, demoCode, onVerified, onBack }) => {
       const result = await api.verifyCode(email, code);
       
       if (result.status === 'existing_user') {
-        await login(result.token, result.user);
+        // Existing user - log them in
+        await login(result.accessToken || result.token, result.user);
+      } else if (result.status === 'new_user') {
+        // New user - go to registration screen
+        onVerified(email);
       } else {
+        // Fallback: if status is not clear, assume new user
         onVerified(email);
       }
     } catch (err) {
@@ -315,15 +345,6 @@ const VerifyCodeStep = ({ email, demoCode, onVerified, onBack }) => {
         {email}
       </p>
 
-      {/* Demo code hint - remove in production */}
-      {demoCode && (
-        <div style={{
-          padding: '12px', background: `${colors.accent.main}15`, border: `1px solid ${colors.accent.main}30`,
-          borderRadius: '8px', marginBottom: '20px', fontSize: '12px', color: colors.accent.main, textAlign: 'center',
-        }}>
-          Demo mode: Your code is <strong>{demoCode}</strong>
-        </div>
-      )}
 
       <div style={{ marginBottom: '20px' }}>
         <label style={{ display: 'block', fontSize: '12px', color: colors.neutral[400], marginBottom: '6px' }}>
@@ -513,11 +534,9 @@ const RegisterStep = ({ email, onBack }) => {
 const AuthScreen = () => {
   const [step, setStep] = useState('email'); // email, verify, register
   const [email, setEmail] = useState('');
-  const [demoCode, setDemoCode] = useState('');
 
-  const handleEmailNext = (emailValue, code) => {
+  const handleEmailNext = (emailValue) => {
     setEmail(emailValue);
-    setDemoCode(code);
     setStep('verify');
   };
 
@@ -550,12 +569,12 @@ const AuthScreen = () => {
             </svg>
           </div>
           <h1 style={{ fontSize: '28px', fontWeight: '700', fontFamily: '"Fraunces", serif', color: colors.neutral[50] }}>
-            Relativity
+            Relativit
           </h1>
         </div>
 
         {step === 'email' && <EmailStep onNext={handleEmailNext} />}
-        {step === 'verify' && <VerifyCodeStep email={email} demoCode={demoCode} onVerified={handleVerified} onBack={() => setStep('email')} />}
+        {step === 'verify' && <VerifyCodeStep email={email} onVerified={handleVerified} onBack={() => setStep('email')} />}
         {step === 'register' && <RegisterStep email={email} onBack={() => setStep('email')} />}
       </div>
     </div>
@@ -569,8 +588,9 @@ const ApiKeySetup = () => {
   const [provider, setProvider] = useState('anthropic');
   const [apiKey, setApiKey] = useState('');
   const [loading, setLoading] = useState(false);
+  const [trialLoading, setTrialLoading] = useState(false);
   const [error, setError] = useState('');
-  const { updateApiKeyStatus } = useAuth();
+  const { updateApiKeyStatus, updateTrialMode } = useAuth();
 
   const providers = [
     { id: 'anthropic', name: 'Anthropic', placeholder: 'sk-ant-...' },
@@ -595,6 +615,20 @@ const ApiKeySetup = () => {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTrialMode = async () => {
+    setTrialLoading(true);
+    setError('');
+
+    try {
+      const result = await api.enableTrialMode();
+      updateTrialMode(true, result.trialCredits);
+    } catch (err) {
+      setError(err.message || 'Failed to enable trial mode');
+    } finally {
+      setTrialLoading(false);
     }
   };
 
@@ -625,8 +659,45 @@ const ApiKeySetup = () => {
             Connect Your AI
           </h2>
           <p style={{ fontSize: '14px', color: colors.neutral[500] }}>
-            Enter your API key to power Relativity
+            Enter your API key to power Relativit
           </p>
+        </div>
+
+        {/* Trial Mode Option */}
+        <div style={{
+          padding: '20px', background: `${colors.primary.main}10`,
+          border: `1px solid ${colors.primary.main}30`, borderRadius: '12px',
+          marginBottom: '24px', textAlign: 'center'
+        }}>
+          <p style={{ fontSize: '14px', color: colors.neutral[300], marginBottom: '12px' }}>
+            Want to try Relativit first?
+          </p>
+          <button
+            type="button"
+            onClick={handleTrialMode}
+            disabled={trialLoading}
+            style={{
+              width: '100%', padding: '12px 24px', borderRadius: '10px',
+              background: `linear-gradient(135deg, ${colors.primary.main}, ${colors.secondary.main})`,
+              border: 'none', color: 'white', fontSize: '14px', fontWeight: '600',
+              cursor: trialLoading ? 'not-allowed' : 'pointer',
+              opacity: trialLoading ? 0.6 : 1,
+            }}
+          >
+            {trialLoading ? 'Enabling...' : 'Try Relativit Now'}
+          </button>
+          <p style={{ fontSize: '11px', color: colors.neutral[600], marginTop: '8px' }}>
+            No API key required to get started
+          </p>
+        </div>
+
+        <div style={{
+          display: 'flex', alignItems: 'center', marginBottom: '24px',
+          color: colors.neutral[500], fontSize: '13px'
+        }}>
+          <div style={{ flex: 1, height: '1px', background: colors.border.default }} />
+          <span style={{ padding: '0 12px' }}>OR</span>
+          <div style={{ flex: 1, height: '1px', background: colors.border.default }} />
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -706,7 +777,7 @@ const ApiKeySetup = () => {
 // MAIN APP
 // ============================================
 const MainApp = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateTrialMode } = useAuth();
   const [workspaces, setWorkspaces] = useState([]);
   const [activeWorkspace, setActiveWorkspace] = useState(null);
   const [threads, setThreads] = useState([]);
@@ -796,8 +867,16 @@ const MainApp = () => {
     if (!input.trim() || !activeThread || loading) return;
 
     const userContent = input.trim();
+    
+    // Validate message length (1000 characters max)
+    if (userContent.length > 1000) {
+      setError(`Message is too long. Maximum 1,000 characters allowed. (${userContent.length} characters)`);
+      return;
+    }
+    
     setInput('');
     setLoading(true);
+    setError('');
 
     try {
       // Add user message
@@ -815,7 +894,12 @@ const MainApp = () => {
 
       // Get AI response
       const allMessages = [...messages, newUserMsg];
-      const { response } = await api.chat(allMessages);
+      const { response, trialCredits: updatedCredits } = await api.chat(allMessages);
+      
+      // Update trial credits if returned
+      if (updatedCredits !== undefined && updatedCredits !== null) {
+        updateTrialMode(true, updatedCredits);
+      }
       
       // Add AI message
       await api.addMessage(activeThread.id, 'ai', response);
@@ -938,7 +1022,7 @@ const MainApp = () => {
             </svg>
           </div>
           <span style={{ fontSize: '16px', fontWeight: '700', fontFamily: '"Fraunces", serif', color: colors.neutral[50] }}>
-            Relativity
+            Relativit
           </span>
         </div>
 
@@ -1057,7 +1141,7 @@ const MainApp = () => {
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: '10px', color: colors.neutral[500], marginBottom: '3px' }}>
-                        {msg.role === 'user' ? 'You' : 'Relativity AI'}
+                        {msg.role === 'user' ? 'You' : 'Relativit AI'}
                       </div>
                       <div style={{
                         fontSize: '13px', lineHeight: '1.6', whiteSpace: 'pre-wrap',
@@ -1091,6 +1175,21 @@ const MainApp = () => {
               </div>
 
               <div style={{ padding: '12px 16px', borderTop: `1px solid ${colors.border.subtle}` }}>
+                {/* Trial mode credits display */}
+                {useTrialMode && (
+                  <div style={{
+                    marginBottom: '8px', padding: '6px 10px',
+                    background: `${colors.primary.main}15`, borderRadius: '6px',
+                    fontSize: '11px', color: colors.neutral[300],
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  }}>
+                    <span>Trial Credits:</span>
+                    <span style={{ fontWeight: '600', color: trialCredits > 0.1 ? colors.status.active : colors.error }}>
+                      ${trialCredits.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                
                 <div style={{
                   display: 'flex', gap: '8px', padding: '8px 12px',
                   background: colors.bg.elevated, borderRadius: '8px', border: `1px solid ${colors.border.default}`,
@@ -1101,25 +1200,34 @@ const MainApp = () => {
                     onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                     placeholder="Ask a question..."
                     disabled={loading}
+                    maxLength={1000}
                     style={{
                       flex: 1, background: 'transparent', border: 'none', outline: 'none',
                       color: colors.neutral[50], fontSize: '13px',
                     }}
                   />
-                  <button
-                    onClick={sendMessage}
-                    disabled={loading || !input.trim()}
-                    style={{
-                      width: '28px', height: '28px', borderRadius: '6px',
-                      background: input.trim() && !loading ? `linear-gradient(135deg, ${colors.primary.main}, ${colors.secondary.main})` : colors.neutral[700],
-                      border: 'none', color: 'white', cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                    </svg>
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                    <button
+                      onClick={sendMessage}
+                      disabled={loading || !input.trim()}
+                      style={{
+                        width: '28px', height: '28px', borderRadius: '6px',
+                        background: input.trim() && !loading ? `linear-gradient(135deg, ${colors.primary.main}, ${colors.secondary.main})` : colors.neutral[700],
+                        border: 'none', color: 'white', cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                      </svg>
+                    </button>
+                    <span style={{
+                      fontSize: '9px', color: input.length > 900 ? colors.error : colors.neutral[600],
+                      lineHeight: '1',
+                    }}>
+                      {input.length}/1000
+                    </span>
+                  </div>
                 </div>
               </div>
             </>
@@ -1206,7 +1314,7 @@ const MainApp = () => {
 // ROOT APP
 // ============================================
 const App = () => {
-  const { user, loading, hasApiKey } = useAuth();
+  const { user, loading, hasApiKey, useTrialMode, trialCredits } = useAuth();
 
   if (loading) {
     return (
@@ -1230,7 +1338,7 @@ const App = () => {
 // ============================================
 // EXPORT
 // ============================================
-const RelativityApp = () => (
+const RelativitApp = () => (
   <>
     <GlobalStyles />
     <AuthProvider>
@@ -1239,4 +1347,4 @@ const RelativityApp = () => (
   </>
 );
 
-export default RelativityApp;
+export default RelativitApp;

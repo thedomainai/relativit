@@ -7,10 +7,10 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || 'relativity-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || 'relativit-secret-key-change-in-production';
 
 // Initialize SQLite database
-const db = new Database(path.join(__dirname, 'relativity.db'));
+const db = new Database(path.join(__dirname, 'relativit.db'));
 
 // Create tables
 db.exec(`
@@ -324,7 +324,7 @@ app.get('/api/settings/api-key', authenticateToken, (req, res) => {
 // AI PROXY ROUTES
 // ============================================
 
-const SYSTEM_PROMPT = `You are Relativity AI, an intelligent research assistant that helps users explore complex topics through structured thinking.
+const SYSTEM_PROMPT = `You are Relativit AI, an intelligent research assistant that helps users explore complex topics through structured thinking.
 
 Your role is to:
 1. Help users investigate topics thoroughly
@@ -656,5 +656,5 @@ app.post('/api/threads/:threadId/messages', authenticateToken, (req, res) => {
 // ============================================
 
 app.listen(PORT, () => {
-  console.log(`Relativity server running on port ${PORT}`);
+  console.log(`Relativit server running on port ${PORT}`);
 });

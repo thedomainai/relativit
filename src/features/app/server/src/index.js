@@ -117,7 +117,7 @@ const server = app.listen(PORT, () => {
   console.log(`
 ╔═══════════════════════════════════════════════════╗
 ║                                                   ║
-║   🚀 Relativity API Server                        ║
+║   🚀 Relativit API Server                        ║
 ║                                                   ║
 ║   Port: ${PORT}                                      ║
 ║   Mode: ${process.env.NODE_ENV || 'development'}                            ║

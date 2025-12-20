@@ -16,6 +16,18 @@ router.post('/chat', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Messages array is required' });
     }
 
+    // Validate message length (1000 characters max for user messages)
+    const userMessages = messages.filter(m => m.role === 'user' || m.role === 'user');
+    for (const msg of userMessages) {
+      if (msg.content && msg.content.length > 1000) {
+        return res.status(400).json({ 
+          error: 'Message is too long. Maximum 1,000 characters allowed.',
+          maxLength: 1000,
+          actualLength: msg.content.length
+        });
+      }
+    }
+
     // If threadId provided, verify ownership
     if (threadId) {
       const thread = await prisma.thread.findFirst({
@@ -30,10 +42,21 @@ router.post('/chat', requireAuth, async (req, res) => {
 
     const result = await aiService.chat(req.user.id, messages);
 
+    // Get updated trial credits if in trial mode
+    let trialCredits = null;
+    if (result.isTrialMode) {
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { trialCredits: true }
+      });
+      trialCredits = user?.trialCredits || 0;
+    }
+
     res.json({
       response: result.response,
       model: result.model,
-      tokens: result.tokens
+      tokens: result.tokens,
+      trialCredits
     });
   } catch (error) {
     console.error('AI chat error:', error);

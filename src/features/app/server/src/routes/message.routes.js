@@ -55,6 +55,15 @@ router.post('/threads/:threadId/messages', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid role' });
     }
 
+    // Validate message length (1000 characters max for user messages)
+    if (role === 'user' && content.length > 1000) {
+      return res.status(400).json({ 
+        error: 'Message is too long. Maximum 1,000 characters allowed.',
+        maxLength: 1000,
+        actualLength: content.length
+      });
+    }
+
     // Verify ownership
     const thread = await prisma.thread.findFirst({
       where: { id: req.params.threadId },

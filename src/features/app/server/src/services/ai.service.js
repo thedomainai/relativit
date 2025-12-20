@@ -1,7 +1,7 @@
 const { decrypt } = require('../utils/encryption');
 const prisma = require('../utils/prisma');
 
-const SYSTEM_PROMPT = `You are Relativity AI, an intelligent research assistant that helps users explore complex topics through structured thinking.
+const SYSTEM_PROMPT = `You are Relativit AI, an intelligent research assistant that helps users explore complex topics through structured thinking.
 
 Your role is to:
 1. Help users investigate topics thoroughly
@@ -69,6 +69,7 @@ class AIService {
 
   /**
    * Get decrypted API key for user
+   * If trial mode is enabled, use Relativit's API key
    */
   async getApiKey(userId) {
     const user = await prisma.user.findUnique({
@@ -76,10 +77,29 @@ class AIService {
       select: {
         apiProvider: true,
         apiKeyEncrypted: true,
-        apiKeyIv: true
+        apiKeyIv: true,
+        useTrialMode: true,
+        trialCredits: true
       }
     });
 
+    // If trial mode is enabled, use Relativit's API key
+    if (user?.useTrialMode && user.trialCredits > 0) {
+      const relativitApiKey = process.env.RELATIVIT_API_KEY;
+      const relativitProvider = process.env.RELATIVIT_API_PROVIDER || 'anthropic';
+      
+      if (!relativitApiKey) {
+        throw new Error('Trial mode is enabled but Relativit API key is not configured');
+      }
+
+      return { 
+        provider: relativitProvider, 
+        apiKey: relativitApiKey,
+        isTrialMode: true
+      };
+    }
+
+    // Otherwise, use user's own API key
     if (!user?.apiKeyEncrypted || !user?.apiKeyIv) {
       throw new Error('API key not configured');
     }
@@ -90,7 +110,7 @@ class AIService {
       process.env.ENCRYPTION_KEY
     );
 
-    return { provider: user.apiProvider, apiKey };
+    return { provider: user.apiProvider, apiKey, isTrialMode: false };
   }
 
   /**
@@ -98,7 +118,19 @@ class AIService {
    */
   async chat(userId, messages, options = {}) {
     const startTime = Date.now();
-    const { provider, apiKey } = await this.getApiKey(userId);
+    const { provider, apiKey, isTrialMode } = await this.getApiKey(userId);
+    
+    // Check and deduct credits if in trial mode
+    if (isTrialMode) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { trialCredits: true }
+      });
+      
+      if (!user || user.trialCredits <= 0) {
+        throw new Error('Trial credits exhausted. Please add your own API key to continue.');
+      }
+    }
 
     const formattedMessages = messages.map(m => ({
       role: m.role === 'ai' || m.role === 'assistant' ? 'assistant' : m.role,
@@ -127,10 +159,30 @@ class AIService {
         throw new Error(`Unknown provider: ${provider}`);
       }
 
-      // Log API usage
-      await this.logUsage(userId, provider, model, 'chat', tokens, Date.now() - startTime, true);
+      // Calculate estimated cost (rough estimate: $0.50 per 1M tokens)
+      const estimatedCost = tokens ? (tokens / 1000000) * 0.5 : 0;
+      
+      // Deduct credits if in trial mode
+      if (isTrialMode) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: {
+            trialCredits: {
+              decrement: estimatedCost
+            }
+          }
+        });
+      }
 
-      return { response, model, tokens };
+      // Log API usage
+      await this.logUsage(userId, provider, model, 'chat', tokens, Date.now() - startTime, true, estimatedCost);
+
+      return { 
+        response, 
+        model, 
+        tokens,
+        isTrialMode 
+      };
     } catch (error) {
       await this.logUsage(userId, provider, model || 'unknown', 'chat', 0, Date.now() - startTime, false, error.message);
       throw error;
@@ -142,7 +194,20 @@ class AIService {
    */
   async extractIssues(userId, messages, currentTree) {
     const startTime = Date.now();
-    const { provider, apiKey } = await this.getApiKey(userId);
+    const { provider, apiKey, isTrialMode } = await this.getApiKey(userId);
+    
+    // Check and deduct credits if in trial mode
+    if (isTrialMode) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { trialCredits: true }
+      });
+      
+      if (!user || user.trialCredits <= 0) {
+        // Return current tree if credits exhausted
+        return currentTree;
+      }
+    }
 
     const conversationText = messages
       .map(m => `${m.role.toUpperCase()}: ${m.content}`)
@@ -183,14 +248,14 @@ Return the updated issue tree as JSON:`;
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const tree = JSON.parse(jsonMatch[0]);
-        await this.logUsage(userId, provider, model || 'unknown', 'extract_issues', 0, Date.now() - startTime, true);
+        await this.logUsage(userId, provider, model || 'unknown', 'extract_issues', 0, Date.now() - startTime, true, null);
         return tree;
       }
 
       return currentTree;
     } catch (error) {
       console.error('Issue extraction failed:', error);
-      await this.logUsage(userId, provider, model || 'unknown', 'extract_issues', 0, Date.now() - startTime, false, error.message);
+      await this.logUsage(userId, provider, model || 'unknown', 'extract_issues', 0, Date.now() - startTime, false, null, error.message);
       return currentTree;
     }
   }
@@ -311,7 +376,7 @@ Return the updated issue tree as JSON:`;
   /**
    * Log API usage
    */
-  async logUsage(userId, provider, model, endpoint, tokens, duration, success, error = null) {
+  async logUsage(userId, provider, model, endpoint, tokens, duration, success, cost = null, error = null) {
     try {
       await prisma.apiUsage.create({
         data: {
@@ -320,6 +385,7 @@ Return the updated issue tree as JSON:`;
           model,
           endpoint,
           tokens: tokens || 0,
+          cost: cost || null,
           duration,
           success,
           error

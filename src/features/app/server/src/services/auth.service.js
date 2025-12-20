@@ -5,7 +5,6 @@ const { hashPassword, verifyPassword, generateVerificationCode, generateSecureTo
 
 const ACCESS_TOKEN_EXPIRY = '15m';
 const REFRESH_TOKEN_EXPIRY_DAYS = 30;
-const DEMO_VERIFICATION_CODE = '677485';
 
 class AuthService {
   /**
@@ -19,7 +18,7 @@ class AuthService {
       where: { email: normalizedEmail }
     });
 
-    // Generate code (demo mode uses fixed code)
+    // Generate verification code
     const code = generateVerificationCode();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
@@ -40,7 +39,19 @@ class AuthService {
     });
 
     // Send email (dev mode logs instead)
-    await emailService.sendVerificationCode(normalizedEmail, code, type);
+    const emailResult = await emailService.sendVerificationCode(normalizedEmail, code, type);
+    
+    // Log email result for debugging
+    if (!emailResult.success) {
+      console.error('Email sending failed:', emailResult.error);
+      console.error('Email details:', emailResult.details);
+      // In production, fail if email cannot be sent
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(`Failed to send verification email: ${emailResult.error}`);
+      }
+      // In development, log but continue (email might be logged to console)
+      console.warn('Email sending failed in development mode, but continuing...');
+    }
 
     return {
       userExists: !!existingUser,
@@ -50,46 +61,9 @@ class AuthService {
 
   /**
    * Verify code and return user status
-   * Demo mode: accepts fixed code (677485) without DB check
    */
   async verifyCode(email, code, ipAddress, userAgent) {
     const normalizedEmail = email.toLowerCase().trim();
-
-    // Demo mode shortcut: accept fixed code without checking DB
-    if (code === DEMO_VERIFICATION_CODE) {
-      // Check if user exists
-      const user = await prisma.user.findUnique({
-        where: { email: normalizedEmail }
-      });
-
-      if (user) {
-        // Existing user - generate tokens
-        const { accessToken, refreshToken } = await this.generateTokens(user, ipAddress, userAgent);
-        
-        // Update last login
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { lastLoginAt: new Date() }
-        });
-
-        // Log audit
-        await this.logAudit(user.id, 'login', 'user', user.id, { method: 'verification_code', demo: true }, ipAddress, userAgent);
-
-        return {
-          status: 'existing_user',
-          accessToken,
-          refreshToken,
-          user: this.sanitizeUser(user)
-        };
-      }
-
-      // New user - return verified email
-      return {
-        status: 'new_user',
-        email: normalizedEmail,
-        verified: true
-      };
-    }
 
     // Normal verification flow
     const verification = await prisma.verificationCode.findFirst({
@@ -153,19 +127,17 @@ class AuthService {
     const normalizedEmail = email.toLowerCase().trim();
 
     // In demo mode, we skip strict verification-code checks
-    // For production, restore proper verification lookup
-    if (process.env.DEMO_MODE !== 'true' && process.env.NODE_ENV === 'production') {
-      const recentVerification = await prisma.verificationCode.findFirst({
-        where: {
-          email: normalizedEmail,
-          usedAt: { not: null },
-          expiresAt: { gt: new Date(Date.now() - 15 * 60 * 1000) } // Within last 15 mins
-        }
-      });
-
-      if (!recentVerification) {
-        throw new Error('Email not verified. Please start the signup process again.');
+    // Verify that email was verified recently
+    const recentVerification = await prisma.verificationCode.findFirst({
+      where: {
+        email: normalizedEmail,
+        usedAt: { not: null },
+        expiresAt: { gt: new Date(Date.now() - 15 * 60 * 1000) } // Within last 15 mins
       }
+    });
+
+    if (!recentVerification) {
+      throw new Error('Email not verified. Please start the signup process again.');
     }
 
     // Check if user already exists
@@ -409,12 +381,60 @@ class AuthService {
   async getApiKeyStatus(userId) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { apiProvider: true, apiKeyEncrypted: true }
+      select: { 
+        apiProvider: true, 
+        apiKeyEncrypted: true,
+        useTrialMode: true,
+        trialCredits: true,
+        trialStartedAt: true
+      }
     });
 
     return {
       hasApiKey: !!user?.apiKeyEncrypted,
-      provider: user?.apiProvider
+      provider: user?.apiProvider,
+      useTrialMode: user?.useTrialMode || false,
+      trialCredits: user?.trialCredits || 0,
+      trialStartedAt: user?.trialStartedAt
+    };
+  }
+
+  /**
+   * Enable trial mode (gives user $0.50 in credits)
+   */
+  async enableTrialMode(userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { useTrialMode: true, trialCredits: true }
+    });
+
+    // If already enabled, don't reset credits
+    if (user?.useTrialMode) {
+      return {
+        success: true,
+        trialCredits: user.trialCredits,
+        alreadyEnabled: true
+      };
+    }
+
+    // Enable trial mode with $0.50 credits
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        useTrialMode: true,
+        trialCredits: 0.5, // $0.50 in credits
+        trialStartedAt: new Date()
+      }
+    });
+
+    await this.logAudit(userId, 'trial_mode_enabled', 'user', userId, { 
+      credits: 0.5 
+    });
+
+    return {
+      success: true,
+      trialCredits: updated.trialCredits,
+      trialStartedAt: updated.trialStartedAt
     };
   }
 
@@ -489,8 +509,10 @@ class AuthService {
       name: user.name,
       avatar: user.avatar,
       emailVerified: user.emailVerified,
-      hasApiKey: !!user.apiKeyEncrypted,
+      hasApiKey: !!user.apiKeyEncrypted || !!user.useTrialMode,
       apiProvider: user.apiProvider,
+      useTrialMode: user.useTrialMode || false,
+      trialCredits: user.trialCredits || 0,
       createdAt: user.createdAt,
       lastLoginAt: user.lastLoginAt
     };

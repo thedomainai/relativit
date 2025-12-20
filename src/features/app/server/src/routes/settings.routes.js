@@ -5,6 +5,20 @@ const aiService = require('../services/ai.service');
 const { requireAuth } = require('../middleware/auth.middleware');
 
 /**
+ * POST /api/settings/trial-mode/enable
+ * Enable trial mode (gives user $0.50 in credits)
+ */
+router.post('/trial-mode/enable', requireAuth, async (req, res) => {
+  try {
+    const result = await authService.enableTrialMode(req.user.id);
+    res.json(result);
+  } catch (error) {
+    console.error('Enable trial mode error:', error);
+    res.status(500).json({ error: 'Failed to enable trial mode' });
+  }
+});
+
+/**
  * GET /api/settings/api-key
  * Get API key status
  */
