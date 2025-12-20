@@ -61,8 +61,8 @@ class AIService {
         headerPrefix: 'Bearer '
       },
       gemini: {
-        urlTemplate: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=',
-        model: 'gemini-1.5-flash'
+        urlTemplate: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=',
+        model: 'gemini-2.5-flash'
       }
     };
   }
@@ -153,7 +153,7 @@ class AIService {
       } else if (provider === 'gemini') {
         const result = await this.callGemini(apiKey, formattedMessages, options);
         response = result.candidates[0].content.parts[0].text;
-        model = 'gemini-1.5-flash';
+        model = 'gemini-2.5-flash';
         tokens = result.usageMetadata?.totalTokenCount;
       } else {
         throw new Error(`Unknown provider: ${provider}`);
@@ -241,7 +241,7 @@ Return the updated issue tree as JSON:`;
       } else if (provider === 'gemini') {
         const result = await this.callGemini(apiKey, [{ role: 'user', content: prompt }]);
         response = result.candidates[0].content.parts[0].text;
-        model = 'gemini-1.5-flash';
+        model = 'gemini-2.5-flash';
       }
 
       // Extract JSON from response

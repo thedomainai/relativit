@@ -16,13 +16,25 @@ class EmailService {
     
     this.resend = apiKey ? new Resend(apiKey) : null;
     
-    // Use test email in development if no EMAIL_FROM is set
+    // Use test email in development to avoid domain verification issues
     // Resend requires verified domain for production
-    if (process.env.NODE_ENV !== 'production' && !process.env.EMAIL_FROM) {
-      this.fromEmail = 'onboarding@resend.dev'; // Resend test email
-      console.log('📧 Using Resend test email address for development');
+    if (process.env.NODE_ENV !== 'production') {
+      // In development, prefer test email unless explicitly set
+      if (process.env.EMAIL_FROM && process.env.EMAIL_FROM.includes('@resend.dev')) {
+        this.fromEmail = process.env.EMAIL_FROM;
+      } else if (!process.env.EMAIL_FROM || process.env.EMAIL_FROM.includes('relativit.app')) {
+        // Use Resend test email if EMAIL_FROM is not set or uses unverified domain
+        this.fromEmail = 'onboarding@resend.dev';
+        console.log('📧 Using Resend test email address for development (relativit.app not verified)');
+        if (process.env.EMAIL_FROM) {
+          console.warn(`⚠️  EMAIL_FROM (${process.env.EMAIL_FROM}) uses unverified domain, using test email instead`);
+        }
+      } else {
+        this.fromEmail = process.env.EMAIL_FROM;
+        console.log(`📧 Using EMAIL_FROM: ${this.fromEmail}`);
+      }
     } else {
-      // Ensure we use the correct domain (relativit.app, not relativity.app)
+      // Production: use EMAIL_FROM or default
       const envEmailFrom = process.env.EMAIL_FROM;
       if (envEmailFrom) {
         // Replace any old "relativity.app" references with "relativit.app"
@@ -34,6 +46,7 @@ class EmailService {
         this.fromEmail = 'noreply@relativit.app';
       }
       console.log(`📧 Using EMAIL_FROM: ${this.fromEmail}`);
+      console.warn('⚠️  Make sure relativit.app domain is verified in Resend dashboard for production!');
     }
     
     this.isDev = process.env.NODE_ENV !== 'production';

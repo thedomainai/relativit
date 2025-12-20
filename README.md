@@ -1,17 +1,17 @@
-# Relativity
+# Relativit
 
 AGI-powered autonomous software development system designed for complete automation of the software development lifecycle.
 
 This repository contains two tightly connected parts:
 
 - **AGI-oriented project structure** (requirements, specs, workflows, knowledge, etc.)
-- **Relativity web application** (React frontend + Express/PostgreSQL backend) under `src/features/app/`
+- **Relativit web application** (React frontend + Express/PostgreSQL backend) under `src/features/app/`
 
 The goal is to let both humans and AGI agents collaborate around a structured SDLC while still being able to run a concrete application locally with minimal setup.
 
 ## Overview
 
-Relativity is a next-generation project structure optimized for AGI (Artificial General Intelligence) agents to autonomously:
+Relativit is a next-generation project structure optimized for AGI (Artificial General Intelligence) agents to autonomously:
 
 - Generate requirements from high-level ideas
 - Design technical specifications
@@ -19,6 +19,58 @@ Relativity is a next-generation project structure optimized for AGI (Artificial 
 - Create comprehensive tests
 - Validate quality continuously
 - Learn and improve from experience
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 20+ (LTS recommended)
+- PostgreSQL (or Supabase account)
+- npm or yarn
+
+### Development Setup
+
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd relativity
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm run install:all
+   ```
+
+3. **Set up environment variables:**
+   ```bash
+   cd src/features/app/server
+   cp .env.example .env
+   # Edit .env with your actual values
+   ```
+
+4. **Set up the database:**
+   ```bash
+   npm run db:push
+   ```
+
+5. **Start development servers:**
+   ```bash
+   npm run dev
+   ```
+
+   This will start:
+   - Backend server on `http://localhost:3001`
+   - Frontend app on `http://localhost:3000`
+
+### Environment Configuration
+
+See [docs/ENVIRONMENT_SETUP.md](./docs/ENVIRONMENT_SETUP.md) for detailed environment variable configuration.
+
+**Key points:**
+- `.env` files are **never committed** to Git
+- Use `.env.example` as a template
+- Development: Uses test email addresses automatically
+- Production: Requires verified domain for email sending
 
 ## Directory Structure
 
@@ -46,399 +98,65 @@ Relativity is a next-generation project structure optimized for AGI (Artificial 
   - `improvements/` - Improvement history
   - `patterns/` - Learned patterns
 
-### Development Artifacts
-
-- **`requirements/`** - Requirements management
-  - `raw/` - Raw input and ideas
-    - `user-stories/` - User stories (As a/I want/So that format)
-  - `processed/` - AI-processed requirements
-    - `user-stories/` - Processed user stories with generated requirements
-    - `functional/` - Functional requirements
-    - `non-functional/` - Non-functional requirements
-    - `constraints/` - Constraints
-  - `validated/` - Validated requirements
-  - `graph/` - Requirement dependency graphs
-
-- **`specs/`** - Technical specifications
-  - `architecture/` - System architecture
-  - `api/` - API specifications
-  - `database/` - Database schemas
-  - `contracts/` - Interface contracts
-  - `versions/` - Version history
-
-- **`src/`** - Source code
-  - `.codegen/` - Code generation metadata and templates
-  - `core/` - Core functionality
-  - `features/` - Feature modules
-  - `shared/` - Shared components
-  - `generators/` - Code generators
-
-- **`tests/`** - Test suite
-  - `.testgen/` - Test generation metadata
-  - `unit/` - Unit tests
-  - `integration/` - Integration tests
-  - `e2e/` - End-to-end tests
-  - `property-based/` - Property-based tests
-  - `reports/` - Test reports
-
-### Automation & Quality
-
-- **`validation/`** - Validation system
-  - `rules/` - Validation rules
-  - `checks/` - Automated checks
-  - `reports/` - Validation reports
-  - `metrics/` - Quality metrics
-
-- **`workflows/`** - Automated workflows
-  - `pipelines/` - Pipeline definitions (requirement→spec→code)
-  - `triggers/` - Event triggers
-  - `hooks/` - Workflow hooks
-  - `orchestration.json` - Orchestration configuration
-
-### Knowledge & Communication
-
-- **`knowledge/`** - Knowledge base
-  - `domain/` - Domain knowledge (entities, business rules, glossary)
-  - `technical/` - Technical patterns and best practices
-  - `embedding/` - Vector embeddings
-  - `index/` - Search indices
-
-- **`communication/`** - Agent communication
-  - `messages/` - Message queue
-  - `events/` - Event logs
-  - `protocols/` - Communication protocols
-
-### Observability
-
-- **`monitoring/`** - Monitoring and observability
-  - `logs/` - Structured logs
-  - `traces/` - Execution traces
-  - `alerts/` - Alert configurations
-
-- **`docs/`** - Documentation
-  - `auto-generated/` - AI-generated documentation
-  - `diagrams/` - Architecture diagrams
-  - `explanations/` - AI-generated explanations
-
-## Key Features
-
-### 1. Complete Automation
-- No human intervention required for standard development tasks
-- Automated requirement→spec→code→test pipeline
-- Self-validation and quality assurance
-
-### 2. Machine-Readable First
-- All data in structured formats (JSON/YAML)
-- Schema-validated at every step
-- API-driven interactions
-
-### 3. State Management
-- Complete project state tracking
-- Dependency graph management
-- Checkpoint and rollback capabilities
-
-### 4. Learning & Improvement
-- Continuous learning from feedback
-- Pattern recognition and reuse
-- Self-improvement mechanisms
-
-### 5. Full Traceability
-- Decision reasoning logged
-- Alternative approaches recorded
-- Complete audit trail
-
-## Workflow
-
-### Main Development Flow
-
-```
-User Story (requirements/raw/user-stories/)
-    ↓
-[AI Agent] User Story Processing
-    ↓
-Requirements Generation (REQ-XXXX)
-    ↓
-requirements/processed/{functional,non-functional}/
-    ↓
-[AI Agent] Specification Design
-    ↓
-specs/{architecture,api,database}/
-    ↓
-[AI Agent] Code Generation
-    ↓
-src/{core,features}/
-    ↓
-[AI Agent] Test Generation
-    ↓
-tests/{unit,integration,e2e}/
-    ↓
-[Automated] Validation & Testing
-    ↓
-[Decision Gate] Pass/Fail
-    ↓
-Production Ready / Auto-Fix Loop
-```
-
-### User Story Processing
-
-```
-User Story Input (JSON/Text)
-    ↓
-Parse & Validate
-    ↓
-Extract Personas → knowledge/domain/personas.json
-    ↓
-Generate Requirements → requirements/processed/
-    ↓
-Identify Workflows → knowledge/domain/workflows.json
-    ↓
-Create Test Scenarios → tests/
-    ↓
-Analyze Dependencies → .state/current/dependencies.json
-    ↓
-Trigger Specification Pipeline
-```
-
-## Getting Started
-
-### 1. Running the Relativity Web Application Locally
-
-#### Prerequisites
-
-- Node.js 18+ (LTS recommended)
-- npm (or another Node.js package manager)
-- PostgreSQL 14+ (or Docker for easy setup)
-
-#### Installation
-
-From the repository root (this `relativity` directory):
-
-```bash
-# Install backend and frontend dependencies
-npm run install:all
-```
+### Web Application
 
-This will:
+- **`src/features/app/`** - Relativit web application
+  - `client/` - React frontend
+  - `server/` - Express backend with PostgreSQL
 
-- Install server dependencies in `src/features/app/server/`
-- Install client dependencies in `src/features/app/client/`
+## Environment Separation
 
-#### Database Setup
+### Development vs Production
 
-**Option A: Using Supabase (Recommended - Already configured)**
+The application uses environment variables to separate development and production configurations:
 
-If you have a Supabase project, use the connection string provided by Supabase.
+- **Development (`NODE_ENV=development`):**
+  - Uses test email addresses automatically
+  - Detailed error messages
+  - Localhost CORS settings
+  - Debug logging
 
-**Option B: Using Docker (For local development)**
+- **Production (`NODE_ENV=production`):**
+  - Requires verified email domain
+  - User-friendly error messages
+  - Production CORS settings
+  - Production logging
 
-```bash
-docker run -d \
-  --name relativity-db \
-  -e POSTGRES_USER=relativity \
-  -e POSTGRES_PASSWORD=relativity_secret \
-  -e POSTGRES_DB=relativity \
-  -p 5432:5432 \
-  postgres:16-alpine
-```
+See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) for detailed deployment guide.
 
-**Option C: Using existing PostgreSQL**
+## Available Scripts
 
-Create a database named `relativity` in your PostgreSQL instance.
+### Root Level
 
-#### Environment configuration
+- `npm run install:all` - Install all dependencies (client + server)
+- `npm run dev` - Start both client and server in development mode
+- `npm run dev:server` - Start only the server
+- `npm run dev:client` - Start only the client
+- `npm run build:client` - Build the client for production
+- `npm run db:push` - Push database schema changes
+- `npm run db:migrate` - Run database migrations
+- `npm run db:studio` - Open Prisma Studio
 
-Backend environment file (not committed to Git):
+## Security
 
-1. Copy the example file:
+- **Never commit `.env` files** - They contain sensitive information
+- **Use strong secrets in production** - Generate with `openssl rand -base64 64`
+- **Rotate secrets regularly** - Especially if compromised
+- **Limit access to production environment variables**
 
-```bash
-cp src/features/app/server/.env.example src/features/app/server/.env
-```
+## Documentation
 
-2. Edit `src/features/app/server/.env` and set:
+- [Environment Setup Guide](./docs/ENVIRONMENT_SETUP.md) - Detailed environment variable configuration
+- [Deployment Guide](./docs/DEPLOYMENT.md) - Production deployment instructions
+- [Release Test Report](./RELEASE_TEST_REPORT.md) - Pre-release testing results
 
-**For Supabase:**
+## Contributing
 
-```env
-# Database (Supabase connection string)
-# Get your connection string from Supabase Dashboard > Settings > Database
-# Note: If password contains @, URL-encode it as %40
-DATABASE_URL="postgresql://postgres:[YOUR-PASSWORD]@db.bfmeghkoxpengilcklny.supabase.co:5432/postgres?schema=public"
-
-# Server
-PORT=3001
-
-# Security (generate secure values!)
-# Generate with: openssl rand -base64 64
-JWT_SECRET=change-me-to-a-long-random-secret-minimum-64-characters
-# Generate with: openssl rand -base64 32
-ENCRYPTION_KEY=change-me-to-a-32-byte-encryption-key
-
-# Demo mode (for local testing - uses fixed verification code 677485)
-DEMO_MODE=true
-```
-
-**For local Docker/PostgreSQL:**
-
-```env
-# Database (local PostgreSQL)
-DATABASE_URL="postgresql://relativity:relativity_secret@localhost:5432/relativity?schema=public"
-
-# Server
-PORT=3001
-
-# Security (generate secure values!)
-# Generate with: openssl rand -base64 64
-JWT_SECRET=change-me-to-a-long-random-secret-minimum-64-characters
-# Generate with: openssl rand -base64 32
-ENCRYPTION_KEY=change-me-to-a-32-byte-encryption-key
-
-# Demo mode (for local testing - uses fixed verification code 677485)
-DEMO_MODE=true
-```
-
-**Important:** 
-- For Supabase: The password `trj_rwv0nxe6HUF@tvb` contains `@`, so it must be URL-encoded as `%40` in the connection string.
-- For production, replace `JWT_SECRET` and `ENCRYPTION_KEY` with secure random values.
-
-3. Initialize the database:
-
-```bash
-# Generate Prisma client
-npm run db:generate
-
-# Create database tables
-npm run db:push
-```
-
-Frontend environment file (optional):
-
-1. Copy the example file if you want to customize the API endpoint:
-
-```bash
-cp src/features/app/client/.env.example src/features/app/client/.env
-```
-
-2. Edit `src/features/app/client/.env` and set:
-
-```env
-REACT_APP_API_URL=http://localhost:3001/api
-```
-
-If you omit this file, the client defaults to `http://localhost:3001/api`.
-
-#### Development mode
-
-Start the backend API:
-
-```bash
-npm run dev:server
-```
-
-This runs the Express server from `src/features/app/server/src/index.js` (default port `3001`).
-
-Start the frontend client in another terminal:
-
-```bash
-npm run dev:client
-```
-
-This runs the React client from `src/features/app/client/` (default port `3000`).
-
-Then open:
-
-- Frontend UI: `http://localhost:3000`
-- Backend API: `http://localhost:3001`
-
-#### Production build (optional)
-
-To create a production build of the frontend:
-
-```bash
-npm run build:client
-```
-
-You can then serve the built assets using your preferred static hosting and run the server with:
-
-```bash
-npm run start:server
-```
-
-### 2. AGI Project Setup
-
-1. Configure agent settings in `.agent/config/`
-2. Define domain knowledge in `knowledge/domain/`
-3. Set validation rules in `validation/rules/`
-4. Configure workflows in `workflows/orchestration.json`
-
-### Adding User Stories (Recommended)
-
-Create user stories in `requirements/raw/user-stories/`:
-
-**Option 1: JSON format**
-```json
-{
-  "id": "US-0001",
-  "title": "User login",
-  "as_a": "registered user",
-  "i_want": "to log in with email and password",
-  "so_that": "I can access my dashboard",
-  "acceptance_criteria": [
-    {"given": "valid credentials", "when": "I log in", "then": "I see my dashboard"}
-  ]
-}
-```
-
-**Option 2: Simple text format**
-```
-As a registered user
-I want to log in with email and password
-So that I can access my dashboard
-```
-
-The AI agent will automatically:
-1. Parse and validate the story
-2. Extract personas and workflows
-3. Generate detailed requirements (REQ-XXXX)
-4. Create specifications
-5. Implement code
-6. Generate tests
-7. Validate everything
-
-See `templates/user-story.template.md` for detailed guidelines.
-
-### Adding Direct Requirements
-
-Alternatively, place raw requirements in `requirements/raw/` and the agent will:
-1. Process and structure them
-2. Generate specifications
-3. Implement code
-4. Create tests
-5. Validate everything
-
-### Monitoring
-
-- Check `.state/current/project-state.json` for overall status
-- View `monitoring/logs/` for execution logs
-- Review `.learning/metrics/` for performance data
-
-## Design Principles
-
-1. **AGI-First**: Optimized for machine understanding and processing
-2. **Fully Structured**: No unstructured text; all data is typed and validated
-3. **Autonomous**: Capable of complete SDLC without human intervention
-4. **Transparent**: All decisions and reasoning are recorded
-5. **Self-Improving**: Learns from experience and feedback
-6. **Resilient**: Checkpoints, rollbacks, and error recovery
-
-## Status
-
-🟢 **Initialized** - Ready for autonomous development
+1. Create a feature branch from `develop`
+2. Make your changes
+3. Ensure all tests pass
+4. Submit a pull request
 
 ## License
 
-[Your License Here]
-
-## Version
-
-0.1.0 - Initial AGI-optimized structure
+MIT

@@ -1,0 +1,43 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: src/features/app/server/package.json
+      
+      - name: Install dependencies
+        run: |
+          cd src/features/app/server
+          npm ci --production=false
+      
+      - name: Build
+        run: |
+          cd src/features/app/server
+          npm run build
+        env:
+          NODE_ENV: production
+      
+      - name: Deploy to production
+        # ここに実際のデプロイコマンドを追加
+        # 例: Heroku, Vercel, Railway等
+        run: |
+          echo "Deploy to production server"
+          # heroku container:push web
+          # vercel --prod
+          # railway up

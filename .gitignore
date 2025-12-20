@@ -90,6 +90,9 @@ bin/
 .env.local
 .env.*.local
 *.local
+.env.production
+.env.development
+.env.test
 
 # Database
 *.db
