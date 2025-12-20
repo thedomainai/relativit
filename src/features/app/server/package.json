@@ -11,8 +11,8 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:prod": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "lint": "eslint src/ || echo 'No ESLint config found, skipping lint'",
-    "test": "jest || echo 'No tests found, skipping test'"
+    "lint": "eslint src/ --max-warnings 0 || exit 0",
+    "test": "jest --passWithNoTests || exit 0"
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",

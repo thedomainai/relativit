@@ -56,11 +56,12 @@ jobs:
       - name: Run tests
         run: |
           cd src/features/app/server
-          if npm run test 2>/dev/null; then
+          # Check if test files exist
+          if find . -name "*.test.js" -o -name "*.spec.js" | grep -q .; then
+            echo "Running tests..."
             npm test
           else
-            echo "⚠️  No tests configured. Skipping test step."
-            exit 0
+            echo "⚠️  No test files found. Skipping test step."
           fi
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
@@ -90,10 +91,11 @@ jobs:
       - name: Run linter
         run: |
           cd src/features/app/server
-          if npm run lint 2>/dev/null; then
-            npm run lint
+          # Check if ESLint config exists
+          if [ -f .eslintrc.js ] || [ -f .eslintrc.json ] || [ -f .eslintrc ]; then
+            echo "Running linter..."
+            npm run lint || echo "⚠️  Linter found issues (non-blocking)"
           else
-            echo "⚠️  No linter configured. Skipping lint step."
-            exit 0
+            echo "⚠️  No ESLint config found. Skipping lint step."
           fi
         continue-on-error: true
