@@ -1,10 +1,19 @@
 require('dotenv').config();
 
+// Verify critical environment variables are set
+if (!process.env.DATABASE_URL && process.env.NODE_ENV === 'production') {
+  console.error('ERROR: DATABASE_URL is not set in production environment');
+  process.exit(1);
+}
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
+
+// Initialize Prisma client early to catch connection issues
+const prisma = require('./utils/prisma');
 
 // Import routes
 const authRoutes = require('./routes/auth.routes');
@@ -15,7 +24,8 @@ const messageRoutes = require('./routes/message.routes');
 const aiRoutes = require('./routes/ai.routes');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+// Cloud RunはPORT環境変数を自動設定する（デフォルト: 8080）
+const PORT = process.env.PORT || 8080;
 
 // ============================================
 // MIDDLEWARE
@@ -113,18 +123,45 @@ app.use((err, req, res, next) => {
 // START SERVER
 // ============================================
 
-const server = app.listen(PORT, () => {
-  console.log(`
+// Test database connection before starting server
+async function startServer() {
+  try {
+    // Test Prisma connection
+    await prisma.$connect();
+    console.log('✅ Database connection established');
+    
+    // Cloud Run requires listening on 0.0.0.0 (all interfaces)
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`
 ╔═══════════════════════════════════════════════════╗
 ║                                                   ║
 ║   🚀 Relativit API Server                        ║
 ║                                                   ║
 ║   Port: ${PORT}                                      ║
+║   Host: 0.0.0.0                                   ║
 ║   Mode: ${process.env.NODE_ENV || 'development'}                            ║
 ║                                                   ║
 ╚═══════════════════════════════════════════════════╝
-  `);
-});
+      `);
+    });
+
+    // Graceful shutdown
+    process.on('SIGTERM', async () => {
+      console.log('SIGTERM received, shutting down gracefully...');
+      server.close(async () => {
+        await prisma.$disconnect();
+        console.log('Server closed');
+        process.exit(0);
+      });
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    console.error('Database connection error:', error.message);
+    process.exit(1);
+  }
+}
+
+startServer();
 
 // Graceful shutdown
 process.on('SIGTERM', () => {

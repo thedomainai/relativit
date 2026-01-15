@@ -45,13 +45,31 @@ router.post('/api-key', requireAuth, async (req, res) => {
     }
 
     // Validate API key before saving
+    console.log(`Validating API key for provider: ${provider}`);
     const validation = await aiService.validateApiKey(provider, apiKey);
+    
+    // If quota error, allow saving but warn user
+    if (validation.warning && validation.isQuotaError) {
+      console.warn(`API key validation warning (quota exceeded) for ${provider}: ${validation.error}`);
+      // Still save the key - it's valid, just quota exceeded
+      await authService.saveApiKey(req.user.id, provider, apiKey);
+      return res.json({ 
+        success: true, 
+        message: 'API key saved successfully',
+        provider,
+        warning: validation.error
+      });
+    }
+    
     if (!validation.valid) {
+      console.error(`API key validation failed: ${validation.error}`);
       return res.status(400).json({ 
         error: 'Invalid API key', 
         details: validation.error 
       });
     }
+    
+    console.log(`API key validation successful for provider: ${provider}`);
 
     await authService.saveApiKey(req.user.id, provider, apiKey);
     

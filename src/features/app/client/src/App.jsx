@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef, createContext, useContext } from 'r
 // ============================================
 // CONFIG
 // ============================================
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 // ============================================
 // COLOR PALETTE
@@ -16,6 +15,10 @@ const colors = {
   success: '#10b981',
   warning: '#f59e0b',
   error: '#ef4444',
+  chat: {
+    userBg: '#24262a',
+    userText: '#e3e3e3',
+  },
   neutral: {
     50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 300: '#cbd5e1',
     400: '#94a3b8', 500: '#64748b', 600: '#475569', 700: '#334155',
@@ -33,6 +36,9 @@ const colors = {
 // ============================================
 const api = {
   token: localStorage.getItem('relativit_token'),
+  refreshToken: localStorage.getItem('relativit_refresh_token'),
+  isRefreshing: false,
+  refreshPromise: null,
   
   setToken(token) {
     this.token = token;
@@ -43,22 +49,90 @@ const api = {
     }
   },
 
+  setRefreshToken(refreshToken) {
+    this.refreshToken = refreshToken;
+    if (refreshToken) {
+      localStorage.setItem('relativit_refresh_token', refreshToken);
+    } else {
+      localStorage.removeItem('relativit_refresh_token');
+    }
+  },
+
+  async refreshAccessToken() {
+    if (this.isRefreshing && this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    if (!this.refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    this.isRefreshing = true;
+    this.refreshPromise = fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: this.refreshToken }),
+    })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'Refresh failed');
+        }
+        this.setToken(data.accessToken);
+        if (data.refreshToken) {
+          this.setRefreshToken(data.refreshToken);
+        }
+        return data.accessToken;
+      })
+      .finally(() => {
+        this.isRefreshing = false;
+        this.refreshPromise = null;
+      });
+
+    return this.refreshPromise;
+  },
+
   async request(endpoint, options = {}) {
     const headers = { 'Content-Type': 'application/json', ...options.headers };
     if (this.token) {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
     
-    const response = await fetch(`${API_BASE}${endpoint}`, {
+    let response = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
       headers,
       body: options.body ? JSON.stringify(options.body) : undefined,
     });
     
-    const data = await response.json();
+    let data = await response.json();
+    
+    // If access token expired, try to refresh
+    if (response.status === 401 && data.code === 'TOKEN_EXPIRED') {
+      try {
+        const newToken = await this.refreshAccessToken();
+        // Retry the original request with new token
+        headers['Authorization'] = `Bearer ${newToken}`;
+        response = await fetch(`${API_BASE}${endpoint}`, {
+          ...options,
+          headers,
+          body: options.body ? JSON.stringify(options.body) : undefined,
+        });
+        data = await response.json();
+      } catch (refreshError) {
+        // Refresh failed - clear tokens and throw error
+        this.setToken(null);
+        this.setRefreshToken(null);
+        throw new Error('Session expired. Please log in again.');
+      }
+    }
     
     if (!response.ok) {
-      throw new Error(data.error || 'Request failed');
+      // Include details field if available (for API key validation errors)
+      const error = new Error(data.error || data.details || 'Request failed');
+      if (data.details) {
+        error.details = data.details;
+      }
+      throw error;
     }
     
     return data;
@@ -69,6 +143,7 @@ const api = {
   verifyCode: (email, code) => api.request('/auth/verify-code', { method: 'POST', body: { email, code } }),
   register: (data) => api.request('/auth/register', { method: 'POST', body: data }),
   login: (email, password) => api.request('/auth/login', { method: 'POST', body: { email, password } }),
+  refresh: (refreshToken) => api.request('/auth/refresh', { method: 'POST', body: { refreshToken } }),
   getMe: () => api.request('/auth/me'),
 
   // Settings
@@ -115,8 +190,35 @@ const AuthProvider = ({ children }) => {
           const { user } = await api.getMe();
           setUser(user);
           setHasApiKey(user.hasApiKey);
-        } catch {
+        } catch (error) {
+          // If token expired and we have refresh token, try to refresh
+          if (api.refreshToken && error.message.includes('expired')) {
+            try {
+              const newToken = await api.refreshAccessToken();
+              const { user } = await api.getMe();
+              setUser(user);
+              setHasApiKey(user.hasApiKey);
+            } catch (refreshError) {
+              // Refresh failed - clear tokens
+              api.setToken(null);
+              api.setRefreshToken(null);
+            }
+          } else {
+            api.setToken(null);
+            api.setRefreshToken(null);
+          }
+        }
+      } else if (api.refreshToken) {
+        // No access token but have refresh token - try to refresh
+        try {
+          await api.refreshAccessToken();
+          const { user } = await api.getMe();
+          setUser(user);
+          setHasApiKey(user.hasApiKey);
+        } catch (refreshError) {
+          // Refresh failed - clear tokens
           api.setToken(null);
+          api.setRefreshToken(null);
         }
       }
       setLoading(false);
@@ -124,8 +226,11 @@ const AuthProvider = ({ children }) => {
     init();
   }, []);
 
-  const login = async (token, userData) => {
+  const login = async (token, userData, refreshToken = null) => {
     api.setToken(token);
+    if (refreshToken) {
+      api.setRefreshToken(refreshToken);
+    }
     setUser(userData);
     const status = await api.getApiKeyStatus();
     setHasApiKey(status.hasApiKey || status.useTrialMode);
@@ -135,6 +240,7 @@ const AuthProvider = ({ children }) => {
 
   const logout = () => {
     api.setToken(null);
+    api.setRefreshToken(null);
     setUser(null);
     setHasApiKey(false);
     setUseTrialMode(false);
@@ -190,6 +296,7 @@ const GlobalStyles = () => (
     @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes highlightFade { from { background-color: rgba(245, 158, 11, 0.2); } to { background-color: transparent; } }
     
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -303,7 +410,7 @@ const VerifyCodeStep = ({ email, onVerified, onBack }) => {
       
       if (result.status === 'existing_user') {
         // Existing user - log them in
-        await login(result.accessToken || result.token, result.user);
+        await login(result.accessToken || result.token, result.user, result.refreshToken);
       } else if (result.status === 'new_user') {
         // New user - go to registration screen
         onVerified(email);
@@ -421,7 +528,7 @@ const RegisterStep = ({ email, onBack }) => {
 
     try {
       const result = await api.register({ email, name, password });
-      await login(result.token, result.user);
+      await login(result.accessToken || result.token, result.user, result.refreshToken);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -590,6 +697,7 @@ const ApiKeySetup = () => {
   const [loading, setLoading] = useState(false);
   const [trialLoading, setTrialLoading] = useState(false);
   const [error, setError] = useState('');
+  const [warning, setWarning] = useState('');
   const { updateApiKeyStatus, updateTrialMode } = useAuth();
 
   const providers = [
@@ -607,12 +715,23 @@ const ApiKeySetup = () => {
 
     setLoading(true);
     setError('');
+    setWarning('');
 
     try {
-      await api.saveApiKey(provider, apiKey);
+      const result = await api.saveApiKey(provider, apiKey);
       updateApiKeyStatus(true);
+      
+      // Show warning if quota exceeded but key is saved
+      if (result.warning) {
+        setWarning(result.warning);
+        // Clear error if warning is shown (key was saved successfully)
+        setError('');
+      }
     } catch (err) {
-      setError(err.message);
+      // Check if error has details field
+      const errorMessage = err.details || err.message || 'Failed to save API key';
+      setError(errorMessage);
+      setWarning('');
     } finally {
       setLoading(false);
     }
@@ -754,6 +873,15 @@ const ApiKeySetup = () => {
             </div>
           )}
 
+          {warning && (
+            <div style={{
+              padding: '12px', background: `${colors.warning}15`, border: `1px solid ${colors.warning}30`,
+              borderRadius: '8px', marginBottom: '16px', fontSize: '13px', color: colors.warning,
+            }}>
+              ⚠️ {warning}
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={loading}
@@ -773,162 +901,253 @@ const ApiKeySetup = () => {
   );
 };
 
+import { useWorkspaces, useThreads, useMessages } from './hooks';
+
+// ============================================
+// MAIN APP
+// ============================================
+import { ChatPanel } from './components/ChatPanel';
+
+const WorkspaceSidebar = ({ workspaces, activeWorkspace, setActiveWorkspace, createWorkspace, threads, activeThread, setActiveThread, createThread }) => (
+  <div style={{ borderRight: `1px solid ${colors.border.subtle}`, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+    <div style={{ padding: '12px', borderBottom: `1px solid ${colors.border.subtle}` }}>
+      <button
+        onClick={createWorkspace}
+        style={{
+          width: '100%', padding: '10px', borderRadius: '8px',
+          background: `${colors.primary.main}15`, border: `1px solid ${colors.primary.main}30`,
+          color: colors.primary.light, fontSize: '12px', fontWeight: '500', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        New Workspace
+      </button>
+    </div>
+
+    <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
+      {(workspaces || []).map(ws => (
+        <div key={ws.id} style={{ marginBottom: '8px' }}>
+          <div
+            onClick={() => setActiveWorkspace(ws)}
+            style={{
+              padding: '10px 12px', borderRadius: '8px', cursor: 'pointer',
+              background: activeWorkspace?.id === ws.id ? `${colors.primary.main}15` : 'transparent',
+              border: activeWorkspace?.id === ws.id ? `1px solid ${colors.primary.main}30` : '1px solid transparent',
+            }}
+          >
+            <div style={{ fontSize: '12px', fontWeight: '500', color: colors.neutral[300] }}>{ws.name}</div>
+            <div style={{ fontSize: '10px', color: colors.neutral[600] }}>{ws.thread_count || 0} threads</div>
+          </div>
+
+          <div style={{ marginLeft: '12px', marginTop: '4px' }}>
+            <button onClick={createThread} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', background: 'transparent', border: `1px dashed ${colors.border.default}`, color: colors.neutral[500], fontSize: '11px', cursor: 'pointer', marginBottom: '4px' }}>
+              + New Thread
+            </button>
+            {activeWorkspace?.id === ws.id && (threads || []).map(t => (
+              <div key={t.id} onClick={() => setActiveThread(t)} style={{ padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', marginBottom: '2px', background: activeThread?.id === t.id ? colors.bg.hover : 'transparent' }}>
+                <div style={{ fontSize: '11px', color: colors.neutral[400], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {t.title}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const IssueTreePanel = ({ activeWorkspace, highlightedNodeId, expandedNodes, toggleNode, progress }) => {
+    const getStatusColor = (status) => {
+        switch(status) {
+          case 'completed': return colors.status.completed;
+          case 'active': return colors.status.active;
+          default: return colors.status.pending;
+        }
+    };
+    
+    const TreeNode = ({ node, depth = 0, isHighlighted }) => {
+        const hasChildren = node.children && node.children.length > 0;
+        const isExpanded = expandedNodes.has(node.id);
+        
+        return (
+          <div>
+            <div 
+              onClick={() => hasChildren && toggleNode(node.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                padding: '6px 10px', marginBottom: '1px', borderRadius: '6px',
+                cursor: hasChildren ? 'pointer' : 'default',
+                background: isHighlighted ? `rgba(245, 158, 11, 0.2)` : 'transparent',
+                animation: isHighlighted ? 'highlightFade 2s forwards' : 'none',
+              }}
+            >
+              {hasChildren ? (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={colors.neutral[500]} strokeWidth="2"
+                  style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease', flexShrink: 0 }}>
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              ) : <div style={{ width: '12px' }} />}
+              
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getStatusColor(node.status), flexShrink: 0 }} />
+              
+              <div style={{
+                flex: 1, fontSize: '11px', fontWeight: depth === 0 ? '600' : '500',
+                color: colors.neutral[400], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              }}>
+                {node.label}
+              </div>
+    
+              {node.status === 'completed' && (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={colors.status.completed} strokeWidth="2.5">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              )}
+            </div>
+            
+            {hasChildren && isExpanded && (
+              <div style={{ marginLeft: '16px', paddingLeft: '12px', borderLeft: `1px solid ${colors.border.subtle}` }}>
+                {node.children.map((child, i) => <TreeNode key={child.id || i} node={child} depth={depth + 1} isHighlighted={child.id === highlightedNodeId} />)}
+              </div>
+            )}
+          </div>
+        );
+    };
+
+  return (
+    <div style={{ borderLeft: `1px solid ${colors.border.subtle}`, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      <div style={{
+        padding: '12px 14px', borderBottom: `1px solid ${colors.border.subtle}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <span style={{ fontSize: '10px', color: colors.neutral[500], textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+          Issue Tree
+        </span>
+        {activeWorkspace && (
+          <span style={{ padding: '2px 6px', background: `${colors.status.active}20`, borderRadius: '3px', fontSize: '9px', color: colors.status.active }}>
+            Live
+          </span>
+        )}
+      </div>
+
+      {activeWorkspace && (
+        <div style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.border.subtle}` }}>
+          <div style={{ display: 'flex', gap: '8px', fontSize: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: colors.status.completed }} />
+              <span style={{ color: colors.neutral[500] }}>{progress.completed}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: colors.status.active }} />
+              <span style={{ color: colors.neutral[500] }}>{progress.active}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: colors.status.pending }} />
+              <span style={{ color: colors.neutral[500] }}>{progress.pending}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ flex: 1, overflow: 'auto', padding: '12px' }}>
+        {activeWorkspace?.issueTree ? (
+          <TreeNode node={activeWorkspace.issueTree} isHighlighted={activeWorkspace.issueTree.id === highlightedNodeId} />
+        ) : (
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', height: '100%', color: colors.neutral[600],
+          }}>
+             <div style={{ fontSize: '11px' }}>Select a workspace</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
 // ============================================
 // MAIN APP
 // ============================================
 const MainApp = () => {
-  const { user, logout, updateTrialMode } = useAuth();
-  const [workspaces, setWorkspaces] = useState([]);
+  const { user, logout, useTrialMode, trialCredits } = useAuth();
+  
   const [activeWorkspace, setActiveWorkspace] = useState(null);
-  const [threads, setThreads] = useState([]);
   const [activeThread, setActiveThread] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
+  const { data: workspaces, mutate: setWorkspaces } = useWorkspaces();
+  const { data: threads, mutate: setThreads } = useThreads(activeWorkspace?.id);
+  const { data: messages, mutate: setMessages } = useMessages(activeThread?.id);
+  const [highlightedNodeId, setHighlightedNodeId] = useState(null);
   const [expandedNodes, setExpandedNodes] = useState(new Set(['root']));
-  const chatEndRef = useRef(null);
 
-  // Load workspaces
   useEffect(() => {
-    const loadWorkspaces = async () => {
-      try {
-        const { workspaces: ws } = await api.getWorkspaces();
-        setWorkspaces(ws);
-      } catch (err) {
-        console.error('Failed to load workspaces:', err);
+    if (workspaces && !activeWorkspace) {
+      const inbox = workspaces.find(w => w.name === 'Inbox') || workspaces[0];
+      if (inbox) {
+        setActiveWorkspace(inbox);
+      } else {
+        api.createWorkspace('Inbox').then(({ workspace }) => {
+          setWorkspaces(prev => [...(prev || []), workspace]);
+          setActiveWorkspace(workspace);
+        });
       }
-    };
-    loadWorkspaces();
-  }, []);
-
-  // Load threads when workspace changes
-  useEffect(() => {
-    if (activeWorkspace) {
-      const loadThreads = async () => {
-        try {
-          const { threads: ts } = await api.getThreads(activeWorkspace.id);
-          setThreads(ts);
-        } catch (err) {
-          console.error('Failed to load threads:', err);
-        }
-      };
-      loadThreads();
-    } else {
-      setThreads([]);
     }
-    setActiveThread(null);
-    setMessages([]);
-  }, [activeWorkspace]);
+  }, [workspaces, activeWorkspace, setWorkspaces]);
 
-  // Load messages when thread changes
   useEffect(() => {
-    if (activeThread) {
-      const loadMessages = async () => {
-        try {
-          const { messages: msgs } = await api.getMessages(activeThread.id);
-          setMessages(msgs);
-        } catch (err) {
-          console.error('Failed to load messages:', err);
+    if (threads) {
+      if (threads.length > 0) {
+        const currentThreadExists = activeThread && threads.some(t => t.id === activeThread.id);
+        if (!currentThreadExists) {
+          setActiveThread(threads[0]);
         }
-      };
-      loadMessages();
-    } else {
-      setMessages([]);
+      } else if (activeWorkspace) {
+        api.createThread(activeWorkspace.id, 'New Thread').then(({ thread }) => {
+          setThreads([thread]);
+          setActiveThread(thread);
+        });
+      }
     }
-  }, [activeThread]);
-
-  // Auto-scroll
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+     if (activeWorkspace && activeThread && activeThread.workspaceId !== activeWorkspace.id) {
+        setActiveThread(null);
+    }
+  }, [threads, activeWorkspace, activeThread, setThreads]);
 
   const createWorkspace = async () => {
-    try {
-      const { workspace } = await api.createWorkspace('New Research');
-      setWorkspaces([...workspaces, workspace]);
-      setActiveWorkspace(workspace);
-    } catch (err) {
-      console.error('Failed to create workspace:', err);
-    }
+    const { workspace } = await api.createWorkspace('New Research');
+    setWorkspaces(prev => [...(prev || []), workspace]);
+    setActiveWorkspace(workspace);
   };
 
   const createThread = async () => {
     if (!activeWorkspace) return;
-    try {
-      const { thread } = await api.createThread(activeWorkspace.id, 'New Thread');
-      setThreads([...threads, thread]);
-      setActiveThread(thread);
-    } catch (err) {
-      console.error('Failed to create thread:', err);
-    }
+    const { thread } = await api.createThread(activeWorkspace.id, 'New Thread');
+    setThreads(prev => [...(prev || []), thread]);
+    setActiveThread(thread);
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || !activeThread || loading) return;
-
-    const userContent = input.trim();
-    
-    // Validate message length (1000 characters max)
-    if (userContent.length > 1000) {
-      setError(`Message is too long. Maximum 1,000 characters allowed. (${userContent.length} characters)`);
-      return;
-    }
-    
-    setInput('');
-    setLoading(true);
-    setError('');
-
-    try {
-      // Add user message
-      await api.addMessage(activeThread.id, 'user', userContent);
-      const newUserMsg = { role: 'user', content: userContent };
-      setMessages(prev => [...prev, newUserMsg]);
-
-      // Update thread title if first message
-      if (messages.length === 0) {
-        const title = userContent.slice(0, 50) + (userContent.length > 50 ? '...' : '');
-        await api.updateThread(activeThread.id, title);
-        setActiveThread({ ...activeThread, title });
-        setThreads(threads.map(t => t.id === activeThread.id ? { ...t, title } : t));
-      }
-
-      // Get AI response
-      const allMessages = [...messages, newUserMsg];
-      const { response, trialCredits: updatedCredits } = await api.chat(allMessages);
-      
-      // Update trial credits if returned
-      if (updatedCredits !== undefined && updatedCredits !== null) {
-        updateTrialMode(true, updatedCredits);
-      }
-      
-      // Add AI message
-      await api.addMessage(activeThread.id, 'ai', response);
-      const newAiMsg = { role: 'ai', content: response };
-      setMessages(prev => [...prev, newAiMsg]);
-
-      // Extract issues
-      const finalMessages = [...allMessages, newAiMsg];
-      const { tree } = await api.extractIssues(finalMessages, activeWorkspace.issueTree);
-      
-      // Update workspace with new tree
-      await api.updateWorkspace(activeWorkspace.id, { issueTree: tree });
-      const updatedWorkspace = { ...activeWorkspace, issueTree: tree };
+  const handleTreeUpdate = (newTree, activeNodeId) => {
+    if (activeWorkspace) {
+      const updatedWorkspace = { ...activeWorkspace, issueTree: newTree };
+      // Update local state for immediate feedback
       setActiveWorkspace(updatedWorkspace);
-      setWorkspaces(workspaces.map(w => w.id === activeWorkspace.id ? updatedWorkspace : w));
-
-    } catch (err) {
-      console.error('Failed to send message:', err);
-      setMessages(prev => [...prev, { role: 'ai', content: `Error: ${err.message}`, isError: true }]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch(status) {
-      case 'completed': return colors.status.completed;
-      case 'active': return colors.status.active;
-      default: return colors.status.pending;
+      setWorkspaces(prev => prev.map(w => w.id === activeWorkspace.id ? updatedWorkspace : w));
+      
+      // Use the activeNodeId provided by AI, or fallback to null (don't force root highlight)
+      if (activeNodeId) {
+        setHighlightedNodeId(activeNodeId);
+        // Ensure the active node path is expanded
+        // This would require traversing the tree to find parents of activeNodeId, 
+        // but for now, we rely on user expanding or auto-expand logic if added later.
+      }
+      
+      setTimeout(() => setHighlightedNodeId(null), 3000); // Increased to 3s for better visibility
+      
+      // Persist change to the backend
+      api.updateWorkspace(activeWorkspace.id, { issueTree: newTree });
     }
   };
 
@@ -938,52 +1157,6 @@ const MainApp = () => {
       next.has(nodeId) ? next.delete(nodeId) : next.add(nodeId);
       return next;
     });
-  };
-
-  const TreeNode = ({ node, depth = 0 }) => {
-    const hasChildren = node.children && node.children.length > 0;
-    const isExpanded = expandedNodes.has(node.id);
-    
-    return (
-      <div>
-        <div 
-          onClick={() => hasChildren && toggleNode(node.id)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            padding: '6px 10px', marginBottom: '1px', borderRadius: '6px',
-            cursor: hasChildren ? 'pointer' : 'default',
-          }}
-        >
-          {hasChildren ? (
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={colors.neutral[500]} strokeWidth="2"
-              style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease', flexShrink: 0 }}>
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
-          ) : <div style={{ width: '12px' }} />}
-          
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getStatusColor(node.status), flexShrink: 0 }} />
-          
-          <div style={{
-            flex: 1, fontSize: '11px', fontWeight: depth === 0 ? '600' : '500',
-            color: colors.neutral[400], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>
-            {node.label}
-          </div>
-
-          {node.status === 'completed' && (
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={colors.status.completed} strokeWidth="2.5">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-          )}
-        </div>
-        
-        {hasChildren && isExpanded && (
-          <div style={{ marginLeft: '16px', paddingLeft: '12px', borderLeft: `1px solid ${colors.border.subtle}` }}>
-            {node.children.map((child, i) => <TreeNode key={child.id || i} node={child} depth={depth + 1} />)}
-          </div>
-        )}
-      </div>
-    );
   };
 
   const calculateProgress = (tree) => {
@@ -1004,307 +1177,53 @@ const MainApp = () => {
   const progress = activeWorkspace ? calculateProgress(activeWorkspace.issueTree) : { completed: 0, active: 0, pending: 0 };
 
   return (
-    <div style={{ minHeight: '100vh', background: colors.bg.primary }}>
-      {/* Header */}
-      <header style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 24px', borderBottom: `1px solid ${colors.border.subtle}`,
-        background: colors.bg.elevated,
-      }}>
+    <div style={{ height: '100vh', background: colors.bg.primary, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 24px', borderBottom: `1px solid ${colors.border.subtle}`, background: colors.bg.elevated, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '28px', height: '28px', borderRadius: '6px',
-            background: `linear-gradient(135deg, ${colors.primary.main}, ${colors.secondary.main})`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-              <circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
-            </svg>
+          <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: `linear-gradient(135deg, ${colors.primary.main}, ${colors.secondary.main})`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
           </div>
-          <span style={{ fontSize: '16px', fontWeight: '700', fontFamily: '"Fraunces", serif', color: colors.neutral[50] }}>
-            Relativit
-          </span>
+          <span style={{ fontSize: '16px', fontWeight: '700', fontFamily: '"Fraunces", serif', color: colors.neutral[50] }}>Relativit</span>
         </div>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontSize: '13px', color: colors.neutral[400] }}>{user?.name}</span>
-          <button
-            onClick={logout}
-            style={{
-              padding: '6px 12px', borderRadius: '6px', background: 'transparent',
-              border: `1px solid ${colors.border.default}`, color: colors.neutral[400],
-              fontSize: '12px', cursor: 'pointer',
-            }}
-          >
+          <button onClick={logout} style={{ padding: '6px 12px', borderRadius: '6px', background: 'transparent', border: `1px solid ${colors.border.default}`, color: colors.neutral[400], fontSize: '12px', cursor: 'pointer' }}>
             Logout
           </button>
         </div>
       </header>
 
-      {/* Main Layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr 280px', height: 'calc(100vh - 53px)' }}>
-        
-        {/* Left Sidebar */}
-        <div style={{ borderRight: `1px solid ${colors.border.subtle}`, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '12px', borderBottom: `1px solid ${colors.border.subtle}` }}>
-            <button
-              onClick={createWorkspace}
-              style={{
-                width: '100%', padding: '10px', borderRadius: '8px',
-                background: `${colors.primary.main}15`, border: `1px solid ${colors.primary.main}30`,
-                color: colors.primary.light, fontSize: '12px', fontWeight: '500', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              New Workspace
-            </button>
-          </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr 280px', height: 'calc(100vh - 53px)', overflow: 'hidden' }}>
+        <WorkspaceSidebar 
+          workspaces={workspaces}
+          activeWorkspace={activeWorkspace}
+          setActiveWorkspace={setActiveWorkspace}
+          createWorkspace={createWorkspace}
+          threads={threads}
+          activeThread={activeThread}
+          setActiveThread={setActiveThread}
+          createThread={createThread}
+        />
 
-          <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
-            {workspaces.length === 0 ? (
-              <div style={{ padding: '20px', textAlign: 'center', color: colors.neutral[600], fontSize: '12px' }}>
-                No workspaces yet
-              </div>
-            ) : (
-              workspaces.map(ws => (
-                <div key={ws.id} style={{ marginBottom: '8px' }}>
-                  <div
-                    onClick={() => setActiveWorkspace(ws)}
-                    style={{
-                      padding: '10px 12px', borderRadius: '8px', cursor: 'pointer',
-                      background: activeWorkspace?.id === ws.id ? `${colors.primary.main}15` : 'transparent',
-                      border: activeWorkspace?.id === ws.id ? `1px solid ${colors.primary.main}30` : '1px solid transparent',
-                    }}
-                  >
-                    <div style={{ fontSize: '12px', fontWeight: '500', color: colors.neutral[300] }}>{ws.name}</div>
-                    <div style={{ fontSize: '10px', color: colors.neutral[600] }}>{ws.thread_count || 0} threads</div>
-                  </div>
+        <ChatPanel
+          activeThread={activeThread}
+          activeWorkspace={activeWorkspace}
+          messages={messages || []}
+          setMessages={setMessages}
+          setThreads={setThreads}
+          setActiveThread={setActiveThread}
+          onTreeUpdate={handleTreeUpdate}
+          useTrialMode={useTrialMode}
+          trialCredits={trialCredits}
+        />
 
-                  {activeWorkspace?.id === ws.id && (
-                    <div style={{ marginLeft: '12px', marginTop: '4px' }}>
-                      <button
-                        onClick={createThread}
-                        style={{
-                          width: '100%', padding: '6px 10px', borderRadius: '6px',
-                          background: 'transparent', border: `1px dashed ${colors.border.default}`,
-                          color: colors.neutral[500], fontSize: '11px', cursor: 'pointer', marginBottom: '4px',
-                        }}
-                      >
-                        + New Thread
-                      </button>
-                      {threads.map(t => (
-                        <div
-                          key={t.id}
-                          onClick={() => setActiveThread(t)}
-                          style={{
-                            padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', marginBottom: '2px',
-                            background: activeThread?.id === t.id ? colors.bg.hover : 'transparent',
-                          }}
-                        >
-                          <div style={{
-                            fontSize: '11px', color: colors.neutral[400],
-                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                          }}>
-                            {t.title}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Chat */}
-        <div style={{ display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.2)' }}>
-          {activeThread ? (
-            <>
-              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${colors.border.subtle}` }}>
-                <div style={{ fontSize: '13px', fontWeight: '500', color: colors.neutral[50] }}>{activeThread.title}</div>
-              </div>
-
-              <div style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
-                {messages.map((msg, i) => (
-                  <div key={i} style={{ display: 'flex', gap: '10px', marginBottom: '16px', animation: 'fadeIn 0.3s ease' }}>
-                    <div style={{
-                      width: '24px', height: '24px', borderRadius: '5px', flexShrink: 0,
-                      background: msg.role === 'user' ? `linear-gradient(135deg, ${colors.accent.main}, ${colors.error})` : `linear-gradient(135deg, ${colors.primary.main}, ${colors.secondary.main})`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '9px', fontWeight: '600', color: 'white',
-                    }}>
-                      {msg.role === 'user' ? 'U' : 'AI'}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '10px', color: colors.neutral[500], marginBottom: '3px' }}>
-                        {msg.role === 'user' ? 'You' : 'Relativit AI'}
-                      </div>
-                      <div style={{
-                        fontSize: '13px', lineHeight: '1.6', whiteSpace: 'pre-wrap',
-                        color: msg.isError ? colors.error : colors.neutral[200],
-                      }}>
-                        {msg.content}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {loading && (
-                  <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
-                    <div style={{
-                      width: '24px', height: '24px', borderRadius: '5px',
-                      background: `linear-gradient(135deg, ${colors.primary.main}, ${colors.secondary.main})`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <div style={{ display: 'flex', gap: '2px' }}>
-                        {[0, 1, 2].map(i => (
-                          <div key={i} style={{
-                            width: '3px', height: '3px', borderRadius: '50%', background: 'white',
-                            animation: 'pulse 1s ease-in-out infinite', animationDelay: `${i * 0.15}s`,
-                          }} />
-                        ))}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: '12px', color: colors.neutral[500], alignSelf: 'center' }}>Thinking...</div>
-                  </div>
-                )}
-                <div ref={chatEndRef} />
-              </div>
-
-              <div style={{ padding: '12px 16px', borderTop: `1px solid ${colors.border.subtle}` }}>
-                {/* Trial mode credits display */}
-                {useTrialMode && (
-                  <div style={{
-                    marginBottom: '8px', padding: '6px 10px',
-                    background: `${colors.primary.main}15`, borderRadius: '6px',
-                    fontSize: '11px', color: colors.neutral[300],
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  }}>
-                    <span>Trial Credits:</span>
-                    <span style={{ fontWeight: '600', color: trialCredits > 0.1 ? colors.status.active : colors.error }}>
-                      ${trialCredits.toFixed(2)}
-                    </span>
-                  </div>
-                )}
-                
-                <div style={{
-                  display: 'flex', gap: '8px', padding: '8px 12px',
-                  background: colors.bg.elevated, borderRadius: '8px', border: `1px solid ${colors.border.default}`,
-                }}>
-                  <input 
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                    placeholder="Ask a question..."
-                    disabled={loading}
-                    maxLength={1000}
-                    style={{
-                      flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                      color: colors.neutral[50], fontSize: '13px',
-                    }}
-                  />
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                    <button
-                      onClick={sendMessage}
-                      disabled={loading || !input.trim()}
-                      style={{
-                        width: '28px', height: '28px', borderRadius: '6px',
-                        background: input.trim() && !loading ? `linear-gradient(135deg, ${colors.primary.main}, ${colors.secondary.main})` : colors.neutral[700],
-                        border: 'none', color: 'white', cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                      </svg>
-                    </button>
-                    <span style={{
-                      fontSize: '9px', color: input.length > 900 ? colors.error : colors.neutral[600],
-                      lineHeight: '1',
-                    }}>
-                      {input.length}/1000
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: colors.neutral[600] }}>
-              <div style={{
-                width: '64px', height: '64px', borderRadius: '16px',
-                background: `${colors.primary.main}15`, display: 'flex',
-                alignItems: 'center', justifyContent: 'center', marginBottom: '16px',
-              }}>
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={colors.primary.main} strokeWidth="1.5">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                </svg>
-              </div>
-              <div style={{ fontSize: '14px' }}>{activeWorkspace ? 'Select or create a thread' : 'Select or create a workspace'}</div>
-            </div>
-          )}
-        </div>
-
-        {/* Issue Tree */}
-        <div style={{ borderLeft: `1px solid ${colors.border.subtle}`, display: 'flex', flexDirection: 'column' }}>
-          <div style={{
-            padding: '12px 14px', borderBottom: `1px solid ${colors.border.subtle}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          }}>
-            <span style={{ fontSize: '10px', color: colors.neutral[500], textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-              Issue Tree
-            </span>
-            {activeWorkspace && (
-              <span style={{ padding: '2px 6px', background: `${colors.status.active}20`, borderRadius: '3px', fontSize: '9px', color: colors.status.active }}>
-                Live
-              </span>
-            )}
-          </div>
-
-          {activeWorkspace && (
-            <div style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.border.subtle}` }}>
-              <div style={{ display: 'flex', gap: '8px', fontSize: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: colors.status.completed }} />
-                  <span style={{ color: colors.neutral[500] }}>{progress.completed}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: colors.status.active }} />
-                  <span style={{ color: colors.neutral[500] }}>{progress.active}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: colors.status.pending }} />
-                  <span style={{ color: colors.neutral[500] }}>{progress.pending}</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div style={{ flex: 1, overflow: 'auto', padding: '12px' }}>
-            {activeWorkspace?.issueTree ? (
-              <TreeNode node={activeWorkspace.issueTree} />
-            ) : (
-              <div style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center',
-                justifyContent: 'center', height: '100%', color: colors.neutral[600],
-              }}>
-                <div style={{
-                  width: '40px', height: '40px', borderRadius: '10px',
-                  background: colors.bg.elevated, display: 'flex',
-                  alignItems: 'center', justifyContent: 'center',
-                  marginBottom: '10px', border: `1px dashed ${colors.border.default}`,
-                }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={colors.neutral[600]} strokeWidth="1.5">
-                    <circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
-                  </svg>
-                </div>
-                <div style={{ fontSize: '11px' }}>Select a workspace</div>
-              </div>
-            )}
-          </div>
-        </div>
+        <IssueTreePanel
+          activeWorkspace={activeWorkspace}
+          highlightedNodeId={highlightedNodeId}
+          expandedNodes={expandedNodes}
+          toggleNode={toggleNode}
+          progress={progress}
+        />
       </div>
     </div>
   );

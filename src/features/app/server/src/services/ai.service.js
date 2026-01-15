@@ -17,21 +17,17 @@ When responding:
 
 Always aim to help users build a complete understanding of their topic.`;
 
-const ISSUE_EXTRACTION_PROMPT = `Analyze this conversation and extract key discussion points as an issue tree.
+const ISSUE_EXTRACTION_PROMPT = `Analyze the LATEST messages in the conversation and update the issue tree.
 
 Return ONLY valid JSON (no markdown, no explanation) in this exact format:
 {
-  "id": "root",
-  "label": "Main Topic",
-  "status": "active",
-  "children": [
-    {
-      "id": "unique-id-1",
-      "label": "Sub Topic",
-      "status": "completed|active|pending",
-      "children": []
-    }
-  ]
+  "tree": {
+    "id": "root",
+    "label": "Main Topic",
+    "status": "active",
+    "children": [ ... ]
+  },
+  "activeNodeId": "id-of-the-node-currently-being-discussed"
 }
 
 Status meanings:
@@ -40,11 +36,14 @@ Status meanings:
 - "pending": Identified but not yet discussed
 
 Rules:
-- Generate unique IDs for new nodes
-- Preserve existing IDs for nodes that haven't changed
-- Update statuses based on conversation progress
-- Keep labels concise (under 60 characters)
-- Nest related topics appropriately`;
+1. "tree": The FULL updated tree structure.
+   - Preserve existing IDs for nodes that haven't changed.
+   - Generate unique IDs for new nodes.
+   - Update statuses based on conversation progress.
+2. "activeNodeId": The ID of the single node that best represents the current topic of conversation.
+   - If the conversation is general or shifting, pick the most relevant parent node.
+3. Keep labels concise (under 60 characters).
+4. Nest related topics appropriately.`;
 
 class AIService {
   constructor() {
@@ -132,7 +131,16 @@ class AIService {
       }
     }
 
-    const formattedMessages = messages.map(m => ({
+    // SLIDING WINDOW for Chat: Keep system message if any, plus last 20 messages
+    // This prevents context overflow in long conversations
+    let messagesToSend = messages;
+    if (messages.length > 20) {
+      const systemMessages = messages.filter(m => m.role === 'system');
+      const recentMessages = messages.filter(m => m.role !== 'system').slice(-20);
+      messagesToSend = [...systemMessages, ...recentMessages];
+    }
+
+    const formattedMessages = messagesToSend.map(m => ({
       role: m.role === 'ai' || m.role === 'assistant' ? 'assistant' : m.role,
       content: m.content
     }));
@@ -205,81 +213,174 @@ class AIService {
       
       if (!user || user.trialCredits <= 0) {
         // Return current tree if credits exhausted
-        return currentTree;
+        return { tree: currentTree, activeNodeId: null };
       }
     }
 
-    const conversationText = messages
+    // SLIDING WINDOW for Issue Extraction: Only analyze the last 20 messages
+    // This helps maintain focus on the current discussion topic
+    const recentMessages = messages.slice(-20);
+
+    const conversationText = recentMessages
       .map(m => `${m.role.toUpperCase()}: ${m.content}`)
       .join('\n\n');
 
     const prompt = `${ISSUE_EXTRACTION_PROMPT}
 
-Conversation:
+LATEST CONVERSATION (Last ${recentMessages.length} messages):
 ${conversationText}
 
-Current issue tree:
+CURRENT ISSUE TREE:
 ${JSON.stringify(currentTree, null, 2)}
 
-Return the updated issue tree as JSON:`;
+Return the updated issue tree and active node ID as JSON:`;
 
-    let response, model;
+    let response, model, result, tokens = 0;
 
     try {
       if (provider === 'anthropic') {
-        const result = await this.callAnthropic(apiKey, [{ role: 'user', content: prompt }], {
+        result = await this.callAnthropic(apiKey, [{ role: 'user', content: prompt }], {
           systemPrompt: 'You are a JSON-only response bot. Return only valid JSON, no markdown, no explanation.'
         });
         response = result.content[0].text;
         model = result.model;
+        tokens = result.usage?.input_tokens + result.usage?.output_tokens || 0;
       } else if (provider === 'openai') {
-        const result = await this.callOpenAI(apiKey, [{ role: 'user', content: prompt }], {
+        result = await this.callOpenAI(apiKey, [{ role: 'user', content: prompt }], {
           systemPrompt: 'You are a JSON-only response bot. Return only valid JSON, no markdown, no explanation.'
         });
         response = result.choices[0].message.content;
         model = result.model;
+        tokens = result.usage?.total_tokens || 0;
       } else if (provider === 'gemini') {
-        const result = await this.callGemini(apiKey, [{ role: 'user', content: prompt }]);
+        result = await this.callGemini(apiKey, [{ role: 'user', content: prompt }]);
         response = result.candidates[0].content.parts[0].text;
         model = 'gemini-2.5-flash';
+        tokens = result.usageMetadata?.totalTokenCount || 0;
       }
 
       // Extract JSON from response
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const tree = JSON.parse(jsonMatch[0]);
-        await this.logUsage(userId, provider, model || 'unknown', 'extract_issues', 0, Date.now() - startTime, true, null);
-        return tree;
+        const parsedResult = JSON.parse(jsonMatch[0]);
+        
+        // Handle both new format { tree, activeNodeId } and potential fallback
+        let tree = parsedResult.tree || parsedResult;
+        // If parsedResult is just the tree (old format hallucination), use it as tree
+        if (!parsedResult.tree && parsedResult.id) {
+          tree = parsedResult;
+        }
+        
+        const activeNodeId = parsedResult.activeNodeId || null;
+        
+        // Calculate estimated cost (rough estimate: $0.50 per 1M tokens)
+        const estimatedCost = tokens ? (tokens / 1000000) * 0.5 : 0;
+        
+        // Deduct credits if in trial mode
+        if (isTrialMode && estimatedCost > 0) {
+          await prisma.user.update({
+            where: { id: userId },
+            data: {
+              trialCredits: {
+                decrement: estimatedCost
+              }
+            }
+          });
+        }
+        
+        await this.logUsage(userId, provider, model || 'unknown', 'extract_issues', tokens, Date.now() - startTime, true, estimatedCost);
+        return { tree, activeNodeId };
       }
 
-      return currentTree;
+      return { tree: currentTree, activeNodeId: null };
     } catch (error) {
       console.error('Issue extraction failed:', error);
       await this.logUsage(userId, provider, model || 'unknown', 'extract_issues', 0, Date.now() - startTime, false, null, error.message);
-      return currentTree;
+      return { tree: currentTree, activeNodeId: null };
     }
   }
 
   /**
    * Validate API key
+   * Returns: { valid: true } or { valid: false, error: string, isQuotaError: boolean }
    */
   async validateApiKey(provider, apiKey) {
     try {
-      const testMessage = [{ role: 'user', content: 'Hello, respond with just "OK".' }];
+      if (!apiKey || apiKey.trim().length === 0) {
+        return { valid: false, error: 'API key is required' };
+      }
+
+      const trimmedKey = apiKey.trim();
+
+      // Basic format validation first
+      if (provider === 'anthropic' && !trimmedKey.startsWith('sk-ant-')) {
+        return { valid: false, error: 'Invalid Anthropic API key format. Should start with "sk-ant-"' };
+      }
+      if (provider === 'openai' && !trimmedKey.startsWith('sk-')) {
+        return { valid: false, error: 'Invalid OpenAI API key format. Should start with "sk-"' };
+      }
+      if (provider === 'gemini' && !trimmedKey.startsWith('AIza')) {
+        return { valid: false, error: 'Invalid Gemini API key format. Should start with "AIza"' };
+      }
+
+      // Try a minimal API call to validate
+      const testMessage = [{ role: 'user', content: 'OK' }];
 
       if (provider === 'anthropic') {
-        await this.callAnthropic(apiKey, testMessage, { maxTokens: 10 });
+        await this.callAnthropic(trimmedKey, testMessage, { maxTokens: 5 });
       } else if (provider === 'openai') {
-        await this.callOpenAI(apiKey, testMessage, { maxTokens: 10 });
+        await this.callOpenAI(trimmedKey, testMessage, { maxTokens: 5 });
       } else if (provider === 'gemini') {
-        await this.callGemini(apiKey, testMessage, { maxTokens: 10 });
+        await this.callGemini(trimmedKey, testMessage, { maxTokens: 5 });
       } else {
         throw new Error(`Unknown provider: ${provider}`);
       }
 
       return { valid: true };
     } catch (error) {
-      return { valid: false, error: error.message };
+      console.error(`API key validation failed for ${provider}:`, error.message);
+      
+      const errorMessage = error.message || 'Unknown error';
+      
+      // Check for quota/rate limit errors - these mean the key is valid but temporarily unavailable
+      const isQuotaError = 
+        errorMessage.toLowerCase().includes('quota') ||
+        errorMessage.toLowerCase().includes('rate limit') ||
+        errorMessage.toLowerCase().includes('rate_limit') ||
+        errorMessage.toLowerCase().includes('billing') ||
+        errorMessage.toLowerCase().includes('exceeded');
+      
+      if (isQuotaError) {
+        return { 
+          valid: true, // Key is valid, just quota exceeded
+          error: 'API key is valid but quota/rate limit exceeded. You can still save it, but it may not work until quota is restored.',
+          isQuotaError: true,
+          warning: true
+        };
+      }
+      
+      // Check for authentication errors - key is invalid
+      const isAuthError = 
+        errorMessage.toLowerCase().includes('invalid') ||
+        errorMessage.toLowerCase().includes('unauthorized') ||
+        errorMessage.toLowerCase().includes('authentication') ||
+        errorMessage.toLowerCase().includes('api key') ||
+        errorMessage.toLowerCase().includes('permission denied');
+      
+      if (isAuthError) {
+        return { 
+          valid: false, 
+          error: `Invalid API key: ${errorMessage}`,
+          isAuthError: true
+        };
+      }
+      
+      // Other errors - might be temporary, but we'll treat as invalid for safety
+      return { 
+        valid: false, 
+        error: errorMessage,
+        isQuotaError: false
+      };
     }
   }
 
@@ -301,6 +402,11 @@ Return the updated issue tree as JSON:`;
         messages
       })
     });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
+      throw new Error(errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+    }
 
     const data = await response.json();
     if (data.error) {
@@ -327,6 +433,11 @@ Return the updated issue tree as JSON:`;
         messages: allMessages
       })
     });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
+      throw new Error(errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+    }
 
     const data = await response.json();
     if (data.error) {
@@ -365,6 +476,11 @@ Return the updated issue tree as JSON:`;
         }
       })
     });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
+      throw new Error(errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+    }
 
     const data = await response.json();
     if (data.error) {

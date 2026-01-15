@@ -9,11 +9,16 @@
     "dev:client": "npm --prefix src/features/app/client run start",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "start:server": "npm --prefix src/features/app/server run start",
+    "build": "npm run build:client",
     "build:client": "npm --prefix src/features/app/client run build",
     "db:generate": "npm --prefix src/features/app/server run db:generate",
     "db:push": "npm --prefix src/features/app/server run db:push",
     "db:migrate": "npm --prefix src/features/app/server run db:migrate",
-    "db:studio": "npm --prefix src/features/app/server run db:studio"
+    "db:studio": "npm --prefix src/features/app/server run db:studio",
+    "deploy:setup-secrets": "./scripts/setup-secrets.sh",
+    "deploy:cloud-run": "./scripts/deploy-cloud-run.sh",
+    "deploy:firebase": "./scripts/deploy-firebase.sh",
+    "deploy:migrate-service": "./scripts/migrate-service-name.sh"
   },
   "keywords": ["ai", "research", "llm", "structured-thinking", "agi", "autonomous-development"],
   "author": "",

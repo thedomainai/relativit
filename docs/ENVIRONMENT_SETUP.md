@@ -101,8 +101,13 @@ APP_URL=https://relativit.app
 
 DEMO_MODE=false
 
-RELATIVIT_API_KEY=sk-ant-api03-xxxxx
-RELATIVIT_API_PROVIDER=anthropic
+# 試用モード用（チャット用）
+RELATIVIT_API_KEY=AIzaSyD4xtk9q6-rztP3oQxxrXywz2mVbiY8NnQ
+RELATIVIT_API_PROVIDER=gemini
+
+# 論点整理用（Relativit管理、ユーザーのAPIキーとは別）
+RELATIVIT_ISSUE_EXTRACTION_API_KEY=AIzaSyD4xtk9q6-rztP3oQxxrXywz2mVbiY8NnQ
+RELATIVIT_ISSUE_EXTRACTION_API_PROVIDER=gemini
 ```
 
 ## シークレットの生成方法

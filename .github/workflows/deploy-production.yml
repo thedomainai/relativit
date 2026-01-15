@@ -53,11 +53,15 @@ jobs:
           NODE_ENV: production
       
       - name: Deploy to production
-        # ここに実際のデプロイコマンドを追加
-        # 例: Heroku, Vercel, Railway等
+        # デプロイプラットフォームに応じてコマンドを追加
+        # Cloud Run + Firebase の場合は docs/DEPLOYMENT_CLOUD_RUN.md を参照
+        # その他のプラットフォームの場合は docs/DEPLOYMENT.md を参照
         run: |
           echo "ℹ️  Deploy step is not configured yet."
           echo "This workflow is ready for deployment configuration."
-          echo "Please configure your deployment platform (Heroku, Vercel, Railway, etc.)"
-          echo "See docs/DEPLOYMENT.md for instructions"
+          echo ""
+          echo "Available deployment options:"
+          echo "  - Cloud Run + Firebase: See docs/DEPLOYMENT_CLOUD_RUN.md"
+          echo "  - Heroku, Vercel, Railway: See docs/DEPLOYMENT.md"
+          echo ""
           echo "✅ Workflow completed successfully (deploy step skipped)"

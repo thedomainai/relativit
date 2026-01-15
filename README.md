@@ -30,10 +30,14 @@ Relativit is a next-generation project structure optimized for AGI (Artificial G
 
 ### Development Setup
 
+詳細なセットアップ手順は [docs/LOCAL_DEVELOPMENT.md](./docs/LOCAL_DEVELOPMENT.md) を参照してください。
+
+**クイックスタート:**
+
 1. **Clone the repository:**
    ```bash
    git clone <repository-url>
-   cd relativity
+   cd relativit
    ```
 
 2. **Install dependencies:**
@@ -124,6 +128,28 @@ The application uses environment variables to separate development and productio
 
 See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) for detailed deployment guide.
 
+### Production Deployment (Cloud Run + Firebase)
+
+For deploying to Google Cloud Run and Firebase Hosting:
+
+1. **Set up secrets:**
+   ```bash
+   npm run deploy:setup-secrets
+   ```
+
+2. **Deploy backend to Cloud Run:**
+   ```bash
+   npm run deploy:cloud-run
+   ```
+
+3. **Deploy frontend to Firebase Hosting:**
+   ```bash
+   npm run deploy:firebase <API_URL>
+   # Example: npm run deploy:firebase https://relativit-api-xxxxx-xx.a.run.app
+   ```
+
+See [docs/DEPLOYMENT_CLOUD_RUN.md](./docs/DEPLOYMENT_CLOUD_RUN.md) for detailed instructions.
+
 ## Available Scripts
 
 ### Root Level
@@ -137,6 +163,12 @@ See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) for detailed deployment guide.
 - `npm run db:migrate` - Run database migrations
 - `npm run db:studio` - Open Prisma Studio
 
+### Deployment Scripts
+
+- `npm run deploy:setup-secrets` - Set up secrets in Secret Manager
+- `npm run deploy:cloud-run` - Deploy backend to Cloud Run
+- `npm run deploy:firebase <API_URL>` - Deploy frontend to Firebase Hosting
+
 ## Security
 
 - **Never commit `.env` files** - They contain sensitive information
@@ -146,8 +178,11 @@ See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) for detailed deployment guide.
 
 ## Documentation
 
+- [Local Development Guide](./docs/LOCAL_DEVELOPMENT.md) - **ローカル開発環境のセットアップと起動方法**
 - [Environment Setup Guide](./docs/ENVIRONMENT_SETUP.md) - Detailed environment variable configuration
-- [Deployment Guide](./docs/DEPLOYMENT.md) - Production deployment instructions
+- [Deployment Guide](./docs/DEPLOYMENT.md) - Production deployment instructions (Heroku, Vercel, Railway, etc.)
+- [Cloud Run + Firebase Deployment](./docs/DEPLOYMENT_CLOUD_RUN.md) - Detailed guide for deploying to Google Cloud Run and Firebase Hosting
+- [RLS Setup Guide](./docs/RLS_SETUP.md) - Supabase Row Level Security setup
 - [Release Test Report](./RELEASE_TEST_REPORT.md) - Pre-release testing results
 
 ## Contributing

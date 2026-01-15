@@ -103,15 +103,16 @@ router.post('/extract-issues', requireAuth, async (req, res) => {
       children: []
     };
 
-    const tree = await aiService.extractIssues(req.user.id, messages, defaultTree);
+    const result = await aiService.extractIssues(req.user.id, messages, defaultTree);
 
-    res.json({ tree });
+    res.json(result);
   } catch (error) {
     console.error('Extract issues error:', error);
     
     // Return current tree on error
     res.json({ 
       tree: req.body.currentTree || { id: 'root', label: 'Research Topic', status: 'pending', children: [] },
+      activeNodeId: null,
       error: error.message 
     });
   }

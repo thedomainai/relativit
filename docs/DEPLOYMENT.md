@@ -70,9 +70,13 @@ APP_URL=https://relativit.app
 # Demo mode (本番では無効)
 DEMO_MODE=false
 
-# Relativit Trial Mode (本番用)
-RELATIVIT_API_KEY=your-production-api-key
-RELATIVIT_API_PROVIDER=anthropic
+# Relativit Trial Mode (本番用 - チャット用)
+RELATIVIT_API_KEY=AIzaSyD4xtk9q6-rztP3oQxxrXywz2mVbiY8NnQ
+RELATIVIT_API_PROVIDER=gemini
+
+# Relativit Issue Extraction (論点整理用 - Relativit管理)
+RELATIVIT_ISSUE_EXTRACTION_API_KEY=AIzaSyD4xtk9q6-rztP3oQxxrXywz2mVbiY8NnQ
+RELATIVIT_ISSUE_EXTRACTION_API_PROVIDER=gemini
 ```
 
 ## 環境変数の設定方法
@@ -92,9 +96,26 @@ RELATIVIT_API_PROVIDER=anthropic
    npm run dev:server
    ```
 
-### 本番環境（例: Heroku, Vercel, Railway等）
+### 本番環境のデプロイ方法
 
-#### Herokuの場合
+Relativitは以下のプラットフォームでデプロイ可能です：
+
+#### 1. Cloud Run + Firebase Hosting（推奨）
+
+**アーキテクチャ:**
+- **バックエンド**: Google Cloud Run（Node.js/Express API）
+- **フロントエンド**: Firebase Hosting（React アプリ）
+- **データベース**: Supabase（PostgreSQL）
+
+詳細な手順は [DEPLOYMENT_CLOUD_RUN.md](./DEPLOYMENT_CLOUD_RUN.md) を参照してください。
+
+**主な利点:**
+- スケーラブルで自動スケーリング
+- 従量課金でコスト効率が良い
+- Google Cloud のセキュリティ機能
+- Firebase Hosting の高速CDN
+
+#### 2. Heroku
 
 ```bash
 # 環境変数を設定
@@ -108,15 +129,23 @@ heroku config:set CORS_ORIGIN="https://relativit.app"
 heroku config:set APP_URL="https://relativit.app"
 ```
 
-#### Vercelの場合
+#### 3. Vercel
 
 1. Vercelダッシュボード → Project Settings → Environment Variables
 2. 各環境変数を追加
 
-#### Railwayの場合
+**注意**: Vercelはサーバーレス関数向けなので、Express アプリケーションの場合は別途バックエンドサーバーが必要です。
+
+#### 4. Railway
 
 1. Railwayダッシュボード → Variables
 2. 各環境変数を追加
+
+#### 5. その他の選択肢
+
+- **AWS**: ECS + S3 + CloudFront
+- **Azure**: App Service + Static Web Apps
+- **DigitalOcean**: App Platform
 
 ## 環境ごとの動作の違い
 
